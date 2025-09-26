@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Test Timer 🟢 🟢</title>
+<title>Test Timer⏱</title>
 <style>
   :root{
     --bg:#000; --text:#fff;
@@ -56,13 +56,13 @@
   /* 実行画面 */
   .run-wrap{margin:auto; display:flex; flex-direction:column; align-items:center; width:100%; gap:min(4vh,28px)}
   .run-title{
-    margin-top:2vh; /* さらに上へ */
-    margin-bottom:min(10vh, 80px); /* トラックとの間隔をさらに広げる */
+    margin-top:4vh; /* さらに上へ */
+    margin-bottom:min(14vh, 100px); /* トラックとの間隔を広げる */
     font-size: clamp(30px, 6.75vh, 10.5vh);
     font-weight:700; text-align:center; opacity:.95;
-    font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
     position:relative; z-index:2;
-  }
+}
   .timer{
     position:absolute; inset:0;
     display:flex; align-items:center; justify-content:center;
@@ -109,14 +109,14 @@
 .tp-flash{ animation: tpFlashRed .6s linear infinite; } /* 終了時の赤点滅 */
   .run-controls{display:flex; gap:min(3vw,24px); margin-top:min(12vh,96px); position:relative; z-index:2}
   .btn.run{
-    min-width:4em; 
+    min-width:3.2em; 
     background:transparent; 
     color:#000;
-    font-size:250%;   /* フォントサイズはそのまま */
-    padding:0.5em 1em;  /* 縦横サイズを半分に */
-    font-family: "Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-size:200%;   /* 少し小さく */
+    padding:0.35em 0.8em;  /* ボタンの縦横を縮小 */
+    font-family: "Hiragino Maru Gothic ProN","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
     font-weight:700;
-  }
+}
   .btn.run.start{border-color:var(--accent)}
   .btn.run.stop{border-color:var(--pink)}
 /* 実行画面ボタンの塗りつぶしを枠色と一致させる */
