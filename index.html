@@ -478,19 +478,19 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
     show(multi);
   });
   goStart.addEventListener('click', ()=>{
-    if (!requireSettingsOrWarn('run')) return;
-    applySettingsToRun(); show(run);
+    applySettingsToRun();
+    show(run);
   });
   navToSettings.addEventListener('click', ()=> show(settings));
   navBackMenu1.addEventListener('click', ()=> show(menu));
   navToMenu.addEventListener('click', ()=> show(menu));
   navToRun.addEventListener('click', ()=>{
-    if (!requireSettingsOrWarn('run')) return;
-    applySettingsToRun(); show(run);
+    applySettingsToRun();
+    show(run);
   });
   navToRun2.addEventListener('click', ()=>{
-    if (!requireSettingsOrWarn('run')) return;
-    applySettingsToRun(); show(run);
+    applySettingsToRun();
+    show(run);
   });
 
   // ------- 設定の保存 -------
