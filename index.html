@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Test Timer</title>
+<style>
+  :root{
+    --bg:#000; --text:#fff;
+    --accent:#7ee0ff; /* 水色（バー/枠） */
+    --pink:#ff77aa;
+    --dim:#666;       /* 経過(灰) */
+    --panel:#0a0a0a;
+    --border:#2a2a2a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Segoe UI", Roboto, Arial, sans-serif}
+  button,input,select{font:inherit}
+
+  /* 共通レイアウト */
+  .screen{display:none; height:100dvh; width:100vw; padding: min(4vw,24px);}
+  .screen.active{display:flex}
+  .center-col{margin:auto; display:flex; flex-direction:column; align-items:center; gap: min(4vh,24px); width:100%}
+
+  /* メインメニュー */
+  .title-box{
+    display:flex; align-items:center; justify-content:center;
+    width:25vw; min-width:280px; max-width:80vw;
+    height:16.6vh; min-height:96px; max-height:30vh;
+    border:none; background:transparent;
+  }
+  .title{
+    font-weight:900; color:#fff; text-align:center; white-space:nowrap;
+    font-size: clamp(56px, 16vw, 18vh);
+    letter-spacing:.04em;
+}
+  .menu-buttons{display:flex; flex-direction:column; gap:min(4vh,24px)} /* ボタン間を広げる */
+  .btn{ 
+    padding:.2em .8em; /* 縦を短く */
+    border-radius:14px; background:#111; color:#000; cursor:pointer;
+    border:3px solid #fff; font-weight:800; letter-spacing:.04em;
+    transition:transform .06s ease, opacity .2s ease, background .2s ease;
+    touch-action:manipulation;
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif;
+}
+  /* メインメニューのボタンをタイトルと同じサイズに */
+.menu-buttons .btn{
+  font-size: clamp(28px, 7vw, 8vh); /* 少し小さめに調整 */
+  padding:.15em .6em; /* ボタン全体を小さく */
+}
+  .btn:active{transform:scale(.98)}
+  .btn.start{border-color:var(--accent); background:var(--accent);}
+  .btn.settings{border-color:#fff; background:#fff;}
+  .btn:disabled{opacity:.5; cursor:not-allowed}
+
+  /* 実行画面 */
+  .run-wrap{margin:auto; display:flex; flex-direction:column; align-items:center; width:100%; gap:min(4vh,28px)}
+  .run-title{
+    margin-top:2vh; /* さらに上へ */
+    margin-bottom:min(10vh, 80px); /* トラックとの間隔をさらに広げる */
+    font-size: clamp(30px, 6.75vh, 10.5vh);
+    font-weight:700; text-align:center; opacity:.95;
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+    position:relative; z-index:2;
+  }
+  .timer{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size: clamp(60px, 28vh, 34vh);
+    font-weight:900; font-style:normal; color:#fff; text-align:center;
+    letter-spacing:.05em; line-height:1; white-space:nowrap;
+    text-shadow: 0 0 12px rgba(255,255,255,.08);
+    transform: scaleX(0.6); /* 横方向を60%にして元の見た目に戻す */
+  }
+        .timer span{ display:inline-block; font-family: "Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif; font-weight:700; }
+  .sep{ margin:0; padding:0; } /* 間隔ゼロ */
+    .sep.colon{ display:inline-block; transform:none; } /* コロンの縮小を解除して標準幅に */
+
+
+  /* 時計を囲むトラック（左右半円・上下直線） */
+  .timer-track{
+    position:relative;
+    width:min(86vw, 1100px);
+    height:min(24vh, 300px);
+    padding: clamp(28px, 4vh, 48px) 0; /* 上下に余白を追加 */
+    display:flex; align-items:center; justify-content:center;
+    margin: min(4vh,32px) auto; /* 上下の間隔をさらに広げる */
+    z-index:0; /* 後面に固定 */
+  }
+  .track-svg{ position:relative; width:100%; height:auto; aspect-ratio:1000/460; display:block; }
+  .track-outline, .track-progress{
+    fill:none;
+    stroke-width:55px; /* 2.5倍 */
+  }
+  .track-outline{ stroke-linecap:round; }
+  .track-progress{ stroke-linecap:butt; }
+  .track-outline{ stroke: var(--dim); opacity:.95; }
+  .track-progress{ stroke: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); }
+  /* --- 単体タイマー：トラック色のしきい値＆終了点滅 --- */
+.tp-warn5{ stroke:#a8ff60 !important; filter: drop-shadow(0 0 6px #a8ff60) !important; } /* 5分切り：黄緑 */
+.tp-warn3{ stroke:#ffe066 !important; filter: drop-shadow(0 0 6px #ffe066) !important; } /* 3分切り：黄色 */
+.tp-warn1,
+.tp-finished{ stroke:#ff3b3b !important; filter: drop-shadow(0 0 8px #ff3b3b) !important; } /* 1分切り/終了：赤 */
+@keyframes tpFlashRed{
+  0%{ stroke-opacity:1 }
+  50%{ stroke-opacity:.25 }
+  100%{ stroke-opacity:1 }
+}
+.tp-flash{ animation: tpFlashRed .6s linear infinite; } /* 終了時の赤点滅 */
+  .run-controls{display:flex; gap:min(3vw,24px); margin-top:min(12vh,96px); position:relative; z-index:2}
+  .btn.run{
+    min-width:4em; 
+    background:transparent; 
+    color:#000;
+    font-size:250%;   /* フォントサイズはそのまま */
+    padding:0.5em 1em;  /* 縦横サイズを半分に */
+    font-family: "Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-weight:700;
+  }
+  .btn.run.start{border-color:var(--accent)}
+  .btn.run.stop{border-color:var(--pink)}
+/* 実行画面ボタンの塗りつぶしを枠色と一致させる */
+.btn.run.start{border-color:var(--accent); background:var(--accent);}
+.btn.run.stop{border-color:var(--pink);   background:var(--pink);}
+  /* 設定画面 */
+  .settings-wrap{margin:auto; width:min(96vw, 1200px); display:flex; flex-direction:column; gap:min(3vh,28px); font-size:200%}
+  .settings-wrap h2{margin:0 0 .4em; font-size: clamp(20px, 4vh, 5vh)}
+  .row{display:flex; align-items:center; gap:min(2vw,18px); flex-wrap:wrap}
+  .quick-row{ margin-top: .8em; }
+  .label{min-width:7em; opacity:.9}
+  .spacer{min-width:7em}
+  .spacer{min-width:7em}
+  .time-inputs input{
+    width: 3.8em; padding:.2em .3em; text-align:center;
+    background:#111; color:#fff; border:2px solid #444; border-radius:10px;
+    font-size:150%;
+  }
+  /* ラベル（時間/分/秒） */
+  .time-unit{
+    margin: 0 .3em;
+    font-size: clamp(20px, 4vh, 5vh); /* h2と同じサイズ */
+    font-weight:700; color:#fff;
+  }
+  .quick{display:flex; gap:.6em; flex-wrap:wrap}
+  .quick button{
+    background:#fff; color:#000; border:2px solid #fff; border-radius:12px; padding:.4em .7em; font-weight:800;
+}
+  /* クリアだけピンク塗り */
+  #btnClearQuick{ background:var(--pink); border-color:var(--pink); color:#000; }
+  .text-input{
+    flex:1; min-width:8em; padding:.35em .6em; background:#111; color:#fff; border:2px solid #444; border-radius:10px;
+}
+  .checks{display:flex; align-items:center; gap:1em; flex-wrap:wrap}
+  .checks label{display:flex; align-items:center; gap:.4em}
+/* 追加：チェックボックスを3倍に拡大 */
+.checks input[type="checkbox"]{
+  transform: scale(3);
+  transform-origin: left center;
+  margin-right:.4em;
+}
+  .foot-actions{display:flex; gap:1em; margin-top:1vh; flex-wrap:wrap}
+  .btn.nav{background:#888; color:#000; border-color:#888}
+/* 追加：個別カラー指定 */
+#saveSettings{ background:#fff3b0; border-color:#fff3b0; color:#000; }
+#navToRun2{  background:var(--accent); border-color:var(--accent); color:#000; }
+  .msg{color:#ffd966; font-size:clamp(14px,2.2vh,18px)}
+
+  /* ヘッダーナビ（軽量） */
+  .topnav{
+    position:fixed; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 12px; background:linear-gradient(#000, #060606); border-bottom:1px solid #111;
+  }
+  .topnav .small{font-weight:700; opacity:.8}
+  .topnav .navbtn{
+    background:#333; color:#ccc; border:1px solid #333; border-radius:10px; padding:.3em .7em; font-weight:700;
+}
+
+/* --- 複数人タイマー用 --- */
+.multi-wrap{
+  position:relative; width:100%; height:100%; background:var(--bg);
+}
+.multi-grid{
+  position:absolute; inset:0; padding: min(3vw,24px) min(3vw,24px) 92px;
+  display:grid; gap:min(2vw,18px);
+  align-content:center; justify-items:center;
+}
+.multi-grid.layout-1{ grid-template-columns: 1fr; }
+.multi-grid.layout-2-3{ grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+.multi-grid.layout-4{ grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+.multi-grid.layout-5-6{ grid-template-columns: repeat(3, minmax(220px, 1fr)); }
+.multi-grid.layout-7-8{ grid-template-columns: repeat(4, minmax(180px, 1fr)); }
+.multi-grid.layout-9-12{ grid-template-columns: repeat(4, minmax(200px, 1fr)); }
+
+/* カード（正方形・丸角） */
+.multi-card{
+  width:100%; max-width: 480px; aspect-ratio: 5 / 3; /* 横長長方形 */
+  background:#0a0a0a; border:3px solid var(--border); border-radius:24px;
+  display:flex; flex-direction:column; justify-content:space-between; align-items:stretch;
+  padding:min(2vw,14px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+.multi-card .mc-title{
+  font-weight:800; font-size: clamp(17px, 2.86vh, 26px);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Sans Rounded W6","Noto Sans JP",sans-serif;
+  color:#fff; text-align:center; margin:2px 0 2px; /* 間隔を狭く */
+}
+.multi-card .mc-time{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  font-size: clamp(20px, 6.2vh, 38px);
+  transform: scaleX(1.3); letter-spacing:.05em;
+  text-shadow: 0 0 10px rgba(255,255,255,.06);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+  margin: 2px 0; /* 間隔を狭く */
+}
+.multi-card .mc-time .sep.colon{ display:inline-block; transform:none; }
+.multi-card .mc-bar{
+  height:12px; background:var(--dim); border-radius:999px; overflow:hidden;
+  box-shadow: inset 0 0 0 2px #222; margin:4px 0 6px; /* 間隔を狭く */
+}
+.multi-card .mc-bar .mc-bar-fill{
+  height:100%; width:100%;
+  background: linear-gradient(90deg, #aaf0ff, var(--accent)); /* 通常色 */
+  transition: width .2s linear;
+}
+/* しきい値に応じたゲージ色（カード側のクラスに追従） */
+.mt-warn5 .mc-bar-fill{ background: linear-gradient(90deg, #d6ff6b, #a8ff60); } /* 黄緑（5分切り） */
+.mt-warn3 .mc-bar-fill{ background: linear-gradient(90deg, #ffe066, #ffd24d); } /* 黄色（3分切り） */
+.mt-warn1 .mc-bar-fill,
+.mt-finished .mc-bar-fill{ background: linear-gradient(90deg, #ff6b6b, #ff3b3b); } /* 赤（1分切り/終了） */
+.multi-card .mc-status{
+  display:flex; align-items:center; justify-content:center;
+  gap:10px; /* 2ボタンの間隔 */
+}
+.multi-card .mc-status .btn{
+  background:var(--accent); border-color:var(--accent); color:#000;
+  padding:.32em .7em; border-radius:12px; border:3px solid var(--accent);
+  font-weight:800; font-size: clamp(14px, 2.2vh, 18px);
+}
+
+/* 追加ボタン＋メニュー戻る（右下固定の横並び） */
+.multi-actions{
+  position:absolute; right:20px; bottom:20px;
+  display:flex; flex-direction:row; align-items:center; gap:16px;
+}
+.add-fab{
+  width:56px; height:56px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  padding:0; font-size:28px; line-height:1;
+  border:3px solid var(--accent);
+  background:var(--accent); color:#000; font-weight:800;
+}
+.add-fab.hidden{ display:none; }
+.back-btn{
+  background:#fff; color:#000; border:3px solid #fff;
+  border-radius:12px; padding:.6em 1.2em; font-weight:800;
+}
+/* iPad用の隠しtime入力 */
+.hidden-time-input{
+  position:fixed; left:-9999px; top:-9999px; width:0; height:0;
+  opacity:0; pointer-events:none;
+}
+
+
+
+  @media (max-width:600px){
+    .title-box{min-width:220px}
+    .timer{width: 80vw; height: 40vh}
+  }
+/* --- しきい値用の枠色＆終了点滅 --- */
+.mt-warn5{ border-color:#a8ff60 !important; } /* 黄緑 */
+.mt-warn3{ border-color:#ffe066 !important; } /* 黄色 */
+.mt-warn1{ border-color:#ff5a5a !important; } /* 赤 */
+.mt-finished{ border-color:#ff3b3b !important; }
+@keyframes mtFlashRed{
+  0%{ box-shadow:0 0 0 0 rgba(255,59,59,.9) }
+  50%{ box-shadow:0 0 24px 6px rgba(255,59,59,.9) }
+  100%{ box-shadow:0 0 0 0 rgba(255,59,59,.9) }
+}
+.mt-flash{
+  animation: mtFlashRed .5s linear infinite;
+}
+</style>
+</head>
+<body>
+
+<!-- メインメニュー -->
+<section id="menu" class="screen active">
+  <div class="center-col" style="margin-top:12vh">
+    <div class="title-box">
+      <div class="title">Test Timer</div>
+    </div>
+    <div class="menu-buttons">
+      <button class="btn start" id="goStart">クラス全員で使用する</button>
+      <button class="btn settings" id="goMulti">複数人で使用する</button>
+    </div>
+    <div class="msg" id="menuMsg" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- 実行画面 -->
+<section id="run" class="screen" aria-live="polite" aria-atomic="true">
+  <div class="topnav">
+    <div class="small">Test Timer</div>
+    <div>
+      <button class="navbtn" id="navToMenu">メニュー</button>
+      <button class="navbtn" id="navToSettings">設定</button>
+    </div>
+  </div>
+  <div class="run-wrap">
+    <div class="run-title" id="runTitle">title</div>
+    <div class="timer-track">
+      <svg class="track-svg" viewBox="0 0 1000 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <!-- 外周（左右は正円の半分、上下は直線） -->
+        <path d="M 500,30 H 750 A 200,200 0 0 1 750,430 H 250 A 200,200 0 0 1 250,30 H 500 Z" class="track-outline"/>
+        <!-- 進捗（外周に沿って減っていく） -->
+        <path d="M 500,30 H 750 A 200,200 0 0 1 750,430 H 250 A 200,200 0 0 1 250,30 H 500 Z" class="track-progress" id="barPath"/>
+      </svg>
+
+      <div class="timer" id="timeText">
+        <span id="hPart">00</span><span class="sep colon">:</span>
+        <span id="mPart">00</span><span class="sep colon">:</span>
+        <span id="sPart">00</span>
+      </div>
+    </div>
+    <div class="run-controls">
+      <button class="btn run start" id="btnToggle">▶︎</button>
+    </div>
+    <div class="msg" id="runMsg" style="display:none"></div>
+  </div>
+</section>
+
+<!-- 複数人で使用する画面 -->
+<section id="multi" class="screen" aria-live="polite">
+  <div class="multi-wrap">
+    <div id="multiGrid" class="multi-grid layout-1" data-count="0"></div>
+
+    <!-- 右下の追加ボタン＋メニュー戻る -->
+    <div class="multi-actions">
+      <button id="addTimerBtn" class="add-fab">＋</button>
+      <button id="backToMenuBtn" class="back-btn">メニューに戻る</button>
+    </div>
+  </div>
+<!-- 隠しtime入力（iPadのネイティブピッカーを呼び出すため） -->
+<input id="hiddenTimePicker" type="time" step="1" class="hidden-time-input" aria-hidden="true">
+</section>
+
+<!-- 設定画面 -->
+<section id="settings" class="screen">
+  <div class="topnav">
+    <div class="small">設定</div>
+    <div>
+      <button class="navbtn" id="navBackMenu1">メニュー</button>
+      <button class="navbtn" id="navToRun">実行へ</button>
+    </div>
+  </div>
+  <div class="settings-wrap" style="margin-top:56px">
+    <!-- 時間設定 -->
+    <div>
+      <h2>時間設定</h2>
+
+      <!-- 1行目：ラベル＋時間入力 -->
+      <div class="row">
+        <div class="label">時間設定</div>
+        <div class="time-inputs">
+          <input type="number" id="h" min="0" max="24" value="0" aria-label="時間"><span class="time-unit">時間</span>
+          <input type="number" id="m" min="0" max="59" value="10" aria-label="分"><span class="time-unit">分</span>
+          <input type="number" id="s" min="0" max="59" value="0" aria-label="秒"><span class="time-unit">秒</span>
+        </div>
+      </div>
+
+      <!-- 2行目：左端を時間入力と揃えたクイックボタン列 -->
+      <div class="row quick-row">
+        <div class="label spacer"></div>
+        <div class="quick" role="group" aria-label="クイック加算">
+          <button type="button" data-add="600">10分</button>
+          <button type="button" data-add="300">5分</button>
+          <button type="button" data-add="60">1分</button>
+          <button type="button" data-add="30">30秒</button>
+          <button type="button" data-add="10">10秒</button>
+          <button type="button" id="btnClearQuick">クリア</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- テスト名 -->
+    <div class="row">
+      <div class="label">テスト名</div>
+      <input id="testName" class="text-input" placeholder="例）英語 中3 Unit 4 小テスト">
+    </div>
+
+    <!-- アナウンス -->
+    <div>
+            <div class="row checks">
+        <div class="label">アナウンス</div>
+        <label><input type="checkbox" class="ann" value="-1">開始時</label>
+        <label><input type="checkbox" class="ann" value="300">5分前</label>
+        <label><input type="checkbox" class="ann" value="180">3分前</label>
+        <label><input type="checkbox" class="ann" value="60">1分前</label>
+        <label><input type="checkbox" class="ann" value="0">終了時</label>
+        <span class="flex-break"></span>
+        <div class="label spacer"></div>
+        <label><input type="checkbox" id="voiceMale">男性</label>
+        <label><input type="checkbox" id="voiceFemale" checked>女性</label>
+      </div>
+      <div class="msg">（音声はブラウザの読み上げ機能を使用。対応端末のみ）</div>
+    </div>
+
+        <div class="foot-actions">
+      <div class="label spacer"></div>
+      <button class="btn nav" id="navToRun2">実行へ</button>
+    </div>
+    <div class="msg" id="settingsMsg"></div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // ------- 状態 -------
+  const state = {
+    durationSec: 0,         // 初期設定された総秒数
+    remainSec: 0,           // 残り秒数
+    running: false,
+    lastTick: 0,
+    rafId: null,
+    annPoints: new Set(),   // 通知秒ポイント
+    voice: 'female',        // 'male' | 'female'
+    saved: false,
+  };
+
+  // ------- 要素 -------
+  const $ = sel => document.querySelector(sel);
+    const menu = $('#menu'), run = $('#run'), settings = $('#settings'), multi = $('#multi');
+  const menuMsg = $('#menuMsg'), runMsg = $('#runMsg'), settingsMsg = $('#settingsMsg');
+  const multiGrid = document.getElementById('multiGrid');
+  const addTimerBtn = document.getElementById('addTimerBtn');
+const hiddenTimePicker = document.getElementById('hiddenTimePicker');
+
+  const goStart = $('#goStart'), goMulti = $('#goMulti');
+  const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings');
+  const navBackMenu1 = $('#navBackMenu1'), navToRun = $('#navToRun'), navToRun2 = $('#navToRun2');
+
+  const timeText = $('#timeText'), barPath = $('#barPath'), runTitle = $('#runTitle');
+
+  // テキスト時計の参照
+  const hPart = document.getElementById('hPart');
+  const mPart = document.getElementById('mPart');
+  const sPart = document.getElementById('sPart');
+  const btnToggle = $('#btnToggle');
+
+  const hI = $('#h'), mI = $('#m'), sI = $('#s');
+  const quickBtns = document.querySelectorAll('.quick button');
+  const testNameI = $('#testName');
+  const annChecks = document.querySelectorAll('.ann');
+  const voiceMale = $('#voiceMale'), voiceFemale = $('#voiceFemale');
+  // const saveSettings = $('#saveSettings'); // 保存ボタン廃止
+
+  // ------- 画面切替 -------
+  function show(id){
+    [menu, run, settings, document.getElementById('multi')].forEach(sc => sc && sc.classList.remove('active'));
+    id.classList.add('active');
+  }
+
+  function requireSettingsOrWarn(nextScreen){
+    if (!state.saved || state.durationSec <= 0){
+      const msg = 'タイマーを設定してください';
+      if (nextScreen === 'run'){
+        alert(msg);
+      } else {
+        menuMsg.textContent = msg;
+        setTimeout(()=> menuMsg.textContent = '', 2500);
+      }
+      return false;
+    }
+    return true;
+  }
+
+  goMulti.addEventListener('click', ()=> {
+    show(multi);
+  });
+  goStart.addEventListener('click', ()=>{
+    if (!requireSettingsOrWarn('run')) return;
+    applySettingsToRun(); show(run);
+  });
+  navToSettings.addEventListener('click', ()=> show(settings));
+  navBackMenu1.addEventListener('click', ()=> show(menu));
+  navToMenu.addEventListener('click', ()=> show(menu));
+  navToRun.addEventListener('click', ()=>{
+    if (!requireSettingsOrWarn('run')) return;
+    applySettingsToRun(); show(run);
+  });
+  navToRun2.addEventListener('click', ()=>{
+    if (!requireSettingsOrWarn('run')) return;
+    applySettingsToRun(); show(run);
+  });
+
+  // ------- 設定の保存 -------
+  function getTotalSeconds(){
+    const h = Math.max(0, parseInt(hI.value||'0',10));
+    const m = Math.max(0, parseInt(mI.value||'0',10));
+    const s = Math.max(0, parseInt(sI.value||'0',10));
+    return (h*3600 + m*60 + s) | 0;
+  }
+  function setFromTotal(sec){
+    sec = Math.max(0, sec|0);
+    const h = Math.floor(sec/3600);
+    const m = Math.floor((sec%3600)/60);
+    const s = sec%60;
+    hI.value = h; mI.value = m; sI.value = s;
+  }
+  quickBtns.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const add = parseInt(b.dataset.add,10) || 0;
+      const total = getTotalSeconds() + add;
+      setFromTotal(total);
+      persistSettings();
+    });
+  });
+  // クリアボタン（合計を0に戻す）
+  const btnClearQuick = document.getElementById('btnClearQuick');
+  if (btnClearQuick){
+    btnClearQuick.addEventListener('click', ()=>{
+      setFromTotal(0);
+    });
+  }
+
+  voiceMale.addEventListener('change', ()=>{
+    if (voiceMale.checked){ voiceFemale.checked = false; state.voice = 'male'; }
+    else if (!voiceFemale.checked){ voiceFemale.checked = true; state.voice = 'female'; }
+  });
+  voiceFemale.addEventListener('change', ()=>{
+    if (voiceFemale.checked){ voiceMale.checked = false; state.voice = 'female'; }
+    else if (!voiceMale.checked){ voiceMale.checked = true; state.voice = 'male'; }
+  });
+
+  // オートセーブ機能：入力のたびに保存＆状態更新
+  function persistSettings(){
+    const total = getTotalSeconds();
+    state.durationSec = total;
+    // 残り時間は総時間を超えないように維持（未開始なら総時間に）
+    if (!state.running){
+      if (!state.remainSec || state.remainSec > total) state.remainSec = total;
+    }
+    state.saved = total > 0;
+
+    // アナウンス設定を保存
+    const points = new Set();
+    annChecks.forEach(chk => { if (chk.checked) points.add(parseInt(chk.value,10)); });
+    state.annPoints = points;
+
+    // 音声種別
+    state.voice = voiceMale.checked ? 'male' : 'female';
+
+    // 保存
+    localStorage.setItem('testTimer.settings', JSON.stringify({
+      total, testName: (testNameI.value||'').trim(),
+      ann: Array.from(points), voice: state.voice
+    }));
+
+    // 軽いフィードバック
+    settingsMsg.textContent = total>0 ? '設定を自動保存しました。' : '合計時間が0秒です。時間を設定してください。';
+    setTimeout(()=> settingsMsg.textContent = '', 1200);
+  }
+
+  // 入力変更で自動保存を発火
+  [hI, mI, sI, testNameI].forEach(el => {
+    el.addEventListener('input', persistSettings);
+    el.addEventListener('change', persistSettings);
+  });
+  annChecks.forEach(chk => chk.addEventListener('change', persistSettings));
+  voiceMale.addEventListener('change', persistSettings);
+  voiceFemale.addEventListener('change', persistSettings);
+
+  // 起動時に前回設定を復元（任意）
+  try{
+    const raw = localStorage.getItem('testTimer.settings');
+    if (raw){
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj.total === 'number'){
+        setFromTotal(obj.total);
+        testNameI.value = obj.testName || '';
+        // アナウンス
+        annChecks.forEach(chk => chk.checked = obj.ann ? obj.ann.includes(parseInt(chk.value,10)) : false);
+        // 音声
+        if (obj.voice === 'male'){ voiceMale.checked = true; voiceFemale.checked = false; }
+        else { voiceMale.checked = false; voiceFemale.checked = true; }
+        // 内部状態反映（保存ボタン押してなくても扱いやすいように）
+        state.durationSec = obj.total;
+        state.remainSec = obj.total;
+        state.saved = true;
+        state.annPoints = new Set(obj.ann || []);
+        state.voice = obj.voice || 'female';
+      }
+    }
+  }catch{}
+
+  // ------- 実行画面に反映 -------
+  function applySettingsToRun(){
+    const title = (testNameI.value||'').trim() || 'テスト名';
+    runTitle.textContent = title;
+    state.remainSec = state.durationSec;
+    updateTimeText(state.remainSec);
+    updateBar();
+    runMsg.textContent = '';
+    cancelAnim();
+    state.running = false;
+    if (btnToggle) btnToggle.textContent = '▶︎';
+  }
+
+  // ------- タイマー表示 -------
+
+  function updateTimeText(rem){
+    const h = Math.floor(rem/3600);
+    const m = Math.floor((rem%3600)/60);
+    const s = Math.floor(rem%60);
+    hPart.textContent = String(h).padStart(2,'0');
+    mPart.textContent = String(m).padStart(2,'0');
+    sPart.textContent = String(s).padStart(2,'0');
+  }
+
+  function updateBar(){
+  const total = Math.max(1, state.durationSec);
+  const remain = Math.max(0, state.remainSec);
+  const ratio = remain / total;
+
+  if (!barPath) return;
+  // 一度だけ長さを初期化
+  if (!barPath._len){
+    try{
+      barPath._len = barPath.getTotalLength();
+      barPath.style.strokeDasharray = barPath._len + ' ' + barPath._len;
+    }catch(e){
+      // getTotalLength未対応対策
+      barPath._len = 1000;
+      barPath.style.strokeDasharray = '1000 1000';
+    }
+  }
+  // 残り比率に応じて外周のダッシュを減らす（=残りを表示）
+  barPath.style.strokeDashoffset = -barPath._len * (1 - ratio);
+
+  // 単体タイマーのしきい値色・点滅を更新
+  updateRunTrackVisuals();
+}
+// 単体タイマー：残り時間しきい値でトラック色を切替・終了時は点滅
+function updateRunTrackVisuals(forceFinish=false){
+  if (!barPath) return;
+  barPath.classList.remove('tp-warn5','tp-warn3','tp-warn1','tp-finished','tp-flash');
+  const sec = Math.ceil(state.remainSec || 0);
+  if (forceFinish || sec <= 0){
+    barPath.classList.add('tp-finished','tp-flash'); // 赤で点滅
+    return;
+  }
+  if (sec <= 60){
+    barPath.classList.add('tp-warn1');  // 赤
+  }else if (sec <= 180){
+    barPath.classList.add('tp-warn3');  // 黄
+  }else if (sec <= 300){
+    barPath.classList.add('tp-warn5');  // 黄緑
+  }
+}
+
+  // ------- カウントダウン -------
+  function tick(now){
+    if (!state.running) return;
+    if (!state.lastTick) state.lastTick = now;
+    const dt = (now - state.lastTick)/1000;
+    state.lastTick = now;
+
+    const before = state.remainSec;
+    state.remainSec = Math.max(0, state.remainSec - dt);
+
+    // アナウンス判定（整数境界で判定）
+    const beforeInt = Math.ceil(before);
+    const afterInt  = Math.ceil(state.remainSec);
+    // 例：before 301 -> after 299 のとき 300 を跨ぐ
+    for (const p of state.annPoints){
+      if (beforeInt >= p && afterInt < p){
+        speakPoint(p);
+      }
+    }
+
+    updateTimeText(Math.ceil(state.remainSec));
+    updateBar();
+
+    if (state.remainSec <= 0){
+  state.running = false;
+  cancelAnim();
+  // 終了時アナウンスが未発火なら保険
+  if (state.annPoints.has(0)) speakPoint(0);
+  // 複数人タイマーと同じ終了音
+  playAlarm('watch');
+  // トラックを赤で点滅
+  updateRunTrackVisuals(true);
+  // 背景も赤↔黒で点滅
+  flashEnd();
+  if (btnToggle) btnToggle.textContent = '▶︎';
+  runMsg.textContent = 'タイマーが終了しました。';
+  return;
+}
+    state.rafId = requestAnimationFrame(tick);
+  }
+  function start(){
+    if (!state.saved || state.durationSec<=0){
+      alert('タイマーを設定してください');
+      return;
+    }
+    if (state.remainSec<=0) state.remainSec = state.durationSec;
+    if (state.running) return;
+    state.running = true;
+    state.lastTick = 0;
+    if (btnToggle) btnToggle.textContent = '⏸';
+    runMsg.textContent = 'カウントダウン中…';
+    cancelAnim();
+    if (state.annPoints.has(-1)) speakPoint(-1); // 開始時アナウンス
+    state.rafId = requestAnimationFrame(tick);
+  }
+  function pause(){
+    state.running = false;
+    cancelAnim();
+    if (btnToggle) btnToggle.textContent = '▶︎';
+    runMsg.textContent = '一時停止中';
+  }
+  function resetToStart(){
+    state.running = false;
+    cancelAnim();
+    state.remainSec = state.durationSec;
+    updateTimeText(state.remainSec);
+    updateBar();
+    runMsg.textContent = '開始前の状態に戻しました';
+  }
+  function cancelAnim(){
+    if (state.rafId) cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+  }
+
+  // ====== 複数人タイマー ======
+  const multiTimers = []; // {id, el, total, remain, running}
+  let multiTicker = null;
+
+  function two(n){ return String(Math.floor(n)).padStart(2,'0'); }
+  function fmtHMS(sec){
+    sec = Math.max(0, sec);
+    const h = Math.floor(sec/3600);
+    const m = Math.floor((sec%3600)/60);
+    const s = Math.floor(sec%60);
+    return `${two(h)}<span class="sep colon">:</span>${two(m)}<span class="sep colon">:</span>${two(s)}`;
+  }
+  // 入力文字列 "HH:MM:SS" / "MM:SS" / "SS" を秒に変換（全角コロン・空白除去対応）
+  function parseHMS(str){
+    if (!str) return null;
+    str = String(str).trim()
+      .replace(/[：]/g, ':')   // 全角コロン→半角
+      .replace(/\s+/g, '');
+    const parts = str.split(':').map(x=>x.replace(/[^\d]/g,''));
+    if (parts.some(p => p==='' )) return null;
+    let h=0,m=0,s=0;
+    if (parts.length===3){ h=+parts[0]; m=+parts[1]; s=+parts[2]; }
+    else if (parts.length===2){ m=+parts[0]; s=+parts[1]; }
+    else if (parts.length===1){ s=+parts[0]; }
+    else return null;
+    if (isNaN(h)||isNaN(m)||isNaN(s)) return null;
+    if (m>59||s>59) return null;
+    return h*3600 + m*60 + s;
+  }
+
+  // --- 端末判定（iPadOSのデスクトップUAも考慮）＋ 時間編集UI（iPad=ダイヤル / PC=入力パネル） ---
+function isIOS(){
+  const ua = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const touch = navigator.maxTouchPoints || 0;
+  return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touch > 1);
+}
+
+function secToHMSval(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const h = String(Math.floor(sec/3600)).padStart(2,'0');
+  const m = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+
+function timeValueToSec(v){
+  if (!v) return null;
+  const parts = v.split(':').map(x=>parseInt(x,10));
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + (isNaN(parts[2])?0:parts[2]);
+  if (parts.length === 2) return parts[0]*3600 + parts[1]*60;
+  return null;
+}
+
+function openTimeEditor(t, anchorEl){
+  // --- iPad：隠し <input type="time" step="1"> のネイティブダイヤルを呼び出す ---
+  if (isIOS()){
+    const ip = document.getElementById('hiddenTimePicker');
+    if (!ip){
+      // フォールバック：prompt（まずは安全策）
+      const cur = secToHMSval(t.total);
+      const nv  = prompt('時間を入力（HH:MM または HH:MM:SS）', cur);
+      const p   = parseHMS(nv);
+      if (p!=null){
+        t.total = Math.max(1, p);
+        if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+        updateCardUI(t);
+      }
+      return;
+    }
+    ip.value = secToHMSval(t.total);
+    const handler = ()=>{
+      const v = ip.value;
+      const sec = timeValueToSec(v);
+      if (sec!=null){
+        t.total = Math.max(1, sec);
+        if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+        updateCardUI(t);
+      }
+      ip.removeEventListener('change', handler);
+    };
+    ip.addEventListener('change', handler, {once:true});
+    if (typeof ip.showPicker === 'function'){ ip.showPicker(); }
+    else { ip.focus(); ip.click(); }
+    return;
+  }
+
+  // --- PC：小さな入力パネル（H/M/S） ---
+  const cur = Math.max(0, Math.floor(t.total));
+  const ch = Math.floor(cur/3600), cm = Math.floor((cur%3600)/60), cs = cur%60;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+  `;
+  const panel = document.createElement('div');
+  panel.style.cssText = `
+    background:#121212; color:#fff; border:2px solid #2a2a2a; border-radius:12px;
+    padding:16px; min-width:280px; font-family:inherit; box-shadow:0 10px 30px rgba(0,0,0,.5);
+  `;
+  panel.innerHTML = `
+    <div style="font-weight:800; margin-bottom:8px;">時間を入力</div>
+    <div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px;">
+      <input id="ih" type="number" min="0" max="99" value="${ch}" style="width:4.2em; text-align:center; background:#111; color:#fff; border:2px solid #444; border-radius:8px; padding:.25em .4em;"> <span>時間</span>
+      <input id="im" type="number" min="0" max="59" value="${cm}" style="width:4.2em; text-align:center; background:#111; color:#fff; border:2px solid #444; border-radius:8px; padding:.25em .4em;"> <span>分</span>
+      <input id="is" type="number" min="0" max="59" value="${cs}" style="width:4.2em; text-align:center; background:#111; color:#fff; border:2px solid #444; border-radius:8px; padding:.25em .4em;"> <span>秒</span>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button id="cancelBtn" style="background:#333; color:#fff; border:1px solid #444; border-radius:8px; padding:.4em .8em; font-weight:700;">キャンセル</button>
+      <button id="okBtn" style="background:#7ee0ff; color:#000; border:2px solid #7ee0ff; border-radius:8px; padding:.4em .9em; font-weight:800;">OK</button>
+    </div>
+  `;
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  const ih = panel.querySelector('#ih'), im = panel.querySelector('#im'), is = panel.querySelector('#is');
+  const ok = panel.querySelector('#okBtn'), cancel = panel.querySelector('#cancelBtn');
+
+  function close(){ overlay.remove(); }
+  function submit(){
+    const H = Math.max(0, parseInt(ih.value||'0',10));
+    const M = Math.max(0, Math.min(59, parseInt(im.value||'0',10)));
+    const S = Math.max(0, Math.min(59, parseInt(is.value||'0',10)));
+    const total = H*3600 + M*60 + S;
+    if (total > 0){
+      t.total = total;
+      if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+      updateCardUI(t);
+    }
+    close();
+  }
+  ok.addEventListener('click', submit);
+  cancel.addEventListener('click', close);
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+  panel.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') submit();
+    if (e.key === 'Escape') close();
+  });
+}
+
+  function startMultiTicker(){
+    if (multiTicker) return;
+    multiTicker = setInterval(()=>{
+      const now = Date.now();
+      multiTimers.forEach(t=>{
+        if (!t.running) return;
+        t.remain = Math.max(0, t.remain - 0.2);
+        updateCardUI(t);
+        if (t.remain <= 0){ t.running = false; }
+      });
+    }, 200);
+  }
+  function stopMultiTicker(){
+    if (multiTicker){ clearInterval(multiTicker); multiTicker = null; }
+  }
+
+  function updateLayout(){
+    if (!multiGrid) return;
+    const n = multiTimers.length;
+    multiGrid.dataset.count = String(n);
+    multiGrid.classList.remove('layout-1','layout-2-3','layout-4','layout-5-6','layout-7-8','layout-9-12');
+    if (n<=1) multiGrid.classList.add('layout-1');
+    else if (n<=3) multiGrid.classList.add('layout-2-3');
+    else if (n===4) multiGrid.classList.add('layout-4');
+    else if (n<=6) multiGrid.classList.add('layout-5-6');
+    else if (n<=8) multiGrid.classList.add('layout-7-8');
+    else multiGrid.classList.add('layout-9-12');
+  }
+
+  function toggleAddFabVisibility(){
+    if (!addTimerBtn) return;
+    if (multiTimers.length >= 12) addTimerBtn.classList.add('hidden');
+    else addTimerBtn.classList.remove('hidden');
+  }
+
+  function updateCardUI(t){
+    if (!t.el) return;
+    const titleEl = t.el.querySelector('.mc-title');
+    const timeEl  = t.el.querySelector('.mc-time');
+    const barFill = t.el.querySelector('.mc-bar-fill');
+    const btn     = t.el.querySelector('.mc-toggle');
+    if (titleEl) titleEl.textContent = t.title || 'テスト名';
+    timeEl.innerHTML = fmtHMS(Math.ceil(t.remain));
+    const ratio = Math.max(0, Math.min(1, t.remain / t.total));
+    barFill.style.width = (ratio*100).toFixed(2) + '%';
+    btn.textContent = t.running ? '⏸' : '▶︎';
+  }
+
+  function createTimerCard(){
+    if (!multiGrid) return;
+    if (multiTimers.length >= 12){
+      alert('タイマーは最大12個までです');
+      return;
+    }
+    // デフォルト 10分
+    const t = {
+      id: 'mt' + Date.now() + Math.random().toString(36).slice(2,6),
+      title: 'テスト名',
+      total: 600, remain: 600, running: false, el: null
+    };
+    const card = document.createElement('div');
+    card.className = 'multi-card';
+    card.innerHTML = `
+      <div class="mc-title">テスト名</div>
+      <div class="mc-time"><span>00</span><span class="sep colon">:</span><span>10</span><span class="sep colon">:</span><span>00</span></div>
+      <div class="mc-bar"><div class="mc-bar-fill" style="width:100%"></div></div>
+      <div class="mc-status">
+        <button class="btn mc-toggle">▶︎</button>
+        <button class="btn mc-delete">消去</button>
+      </div>
+    `;
+    multiGrid.appendChild(card);
+    t.el = card;
+    multiTimers.push(t);
+    updateCardUI(t);
+    updateLayout();
+    startMultiTicker();
+    toggleAddFabVisibility();
+
+    // 再生/一時停止
+    card.querySelector('.mc-toggle').addEventListener('click', ()=>{
+      t.running = !t.running;
+      updateCardUI(t);
+    });
+
+    // 消去
+    card.querySelector('.mc-delete').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const idx = multiTimers.findIndex(x=> x.id === t.id);
+      if (idx !== -1){
+        multiTimers.splice(idx,1);
+        card.remove();
+        updateLayout();
+        toggleAddFabVisibility();
+      }
+    });
+
+    // 近傍タップで編集：タイトル
+    const titleEl = card.querySelector('.mc-title');
+    titleEl.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const nv = prompt('テスト名を入力', t.title || 'テスト名');
+      if (nv!=null){
+        t.title = String(nv).trim() || 'テスト名';
+        updateCardUI(t);
+      }
+    });
+    // 近傍タップで編集：時間（iPad=ダイヤル / PC=入力パネル）
+const timeEl = card.querySelector('.mc-time');
+timeEl.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  openTimeEditor(t, card);
+});
+
+    // カードクリックで「最大化レイアウト内で強調」(視覚的に)
+    card.addEventListener('click', (e)=>{
+      if (e.target.closest('.mc-toggle') || e.target.closest('.mc-delete')) return; // ボタンは除外
+      document.querySelectorAll('.multi-card').forEach(c=> c.style.outline='none');
+      card.style.outline = '4px solid var(--accent)';
+      setTimeout(()=>{ card.style.outline='none'; }, 700);
+    });
+  }
+
+  if (addTimerBtn){
+    addTimerBtn.addEventListener('click', createTimerCard);
+  }
+  const backToMenuBtn = document.getElementById('backToMenuBtn');
+  if (backToMenuBtn){
+    backToMenuBtn.addEventListener('click', ()=> show(menu));
+  }
+
+  // ▶︎/⏸ のトグルボタン
+  function togglePlay(){
+    if (state.running) {
+      pause();
+    } else {
+      start();
+    }
+  }
+  if (btnToggle) btnToggle.addEventListener('click', togglePlay);
+
+  // ------- アナウンス（音声合成） -------
+  function speak(text){
+    try{
+      if (!('speechSynthesis' in window)) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ja-JP';
+      // 簡易な男女表現（声色は端末依存）
+      if (state.voice === 'male'){ u.pitch = 0.8; u.rate = 1.0; }
+      else { u.pitch = 1.2; u.rate = 1.05; }
+      window.speechSynthesis.cancel(); // 前の発話を止める（被り防止）
+      window.speechSynthesis.speak(u);
+    }catch{}
+  }
+  function speakPoint(p){
+    if (p === -1){
+      speak('試験を開始します。');
+    }else if (p === 0){
+      speak('試験終了です。鉛筆を置いてください。');
+      flashEnd();
+    }else if (p === 60){
+      speak('残り一分です。');
+    }else if (p === 180){
+      speak('残り三分です。');
+    }else if (p === 300){
+      speak('残り五分です。');
+    }
+  }
+
+  // 終了時に赤↔黒で点滅
+  function flashEnd(){
+    let n=0;
+    const el = document.body;
+    const id = setInterval(()=>{
+      n++;
+      el.style.background = (n%2)?'#ff3b3b':'#000';
+      if (n>=10){ clearInterval(id); el.style.background = 'var(--bg)'; }
+    }, 160);
+  }
+
+  // ===== しきい値ビジュアル＆アラーム（複数タイマー用） =====
+  // タイル(=タイマー枠)のDOMを見つける（プロパティ差異を吸収）
+  function getTileEl(tile){
+    return tile.el || tile.elem || tile.node || tile.card || tile.root ||
+           (tile.id ? document.querySelector(`[data-tile-id="${tile.id}"]`) : null);
+  }
+
+  // 残り時間に応じて枠クラスを更新（5分/3分/1分）
+  function updateTileWarnState(tile){
+    const el = getTileEl(tile);
+    if(!el) return;
+    el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
+    const r = Math.ceil(tile.remainSec || 0);
+    if(r <= 0){
+      el.classList.add('mt-finished');
+      return;
+    }
+    if(r <= 60)      el.classList.add('mt-warn1');
+    else if(r <= 180)el.classList.add('mt-warn3');
+    else if(r <= 300)el.classList.add('mt-warn5');
+  }
+
+  // ===== デジタル時計系アラーム・サウンドキット =====
+let __audioCtx = null, __masterGain = null;
+const ALARM_GAIN = 0.25; // 全体ボリューム（0.0–1.0）
+
+function ensureAudio(){
+  if (!__audioCtx) {
+    __audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    __masterGain = __audioCtx.createGain();
+    __masterGain.gain.value = ALARM_GAIN;
+    __masterGain.connect(__audioCtx.destination);
+  }
+  // iOS対策：一時停止状態なら再開
+  if (__audioCtx.state === 'suspended') {
+    __audioCtx.resume().catch(()=>{});
+  }
+  return __audioCtx;
+}
+
+/** 単音トーン（ADSRつき） */
+function tone(freq=1000, startTime=0, dur=0.12, {
+  type='sine', attack=0.005, decay=0.08, sustain=0.0008, release=0.03, gain=1.0, vibratoHz=0, vibratoDepth=0
+} = {}){
+  const ctx = ensureAudio();
+  const t0 = (startTime ? startTime : ctx.currentTime);
+  const t1 = t0 + dur;
+
+  const osc = ctx.createOscillator();
+  const g   = ctx.createGain();
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+
+  // ほんの少しのアタック→減衰→サスティン→リリース
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(0.8*gain, t0 + attack);
+  g.gain.exponentialRampToValueAtTime(Math.max(sustain, 0.0001), t0 + attack + decay);
+  g.gain.setValueAtTime(Math.max(sustain, 0.0001), t1 - release);
+  g.gain.exponentialRampToValueAtTime(0.0001, t1);
+
+  // 任意：軽いビブラート
+  if (vibratoHz > 0 && vibratoDepth > 0){
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = vibratoHz;
+    lfoGain.gain.value = vibratoDepth;
+    lfo.connect(lfoGain).connect(osc.frequency);
+    lfo.start(t0);
+    lfo.stop(t1);
+  }
+
+  osc.connect(g).connect(__masterGain || ctx.destination);
+  osc.start(t0);
+  osc.stop(t1 + 0.01);
+  return t1;
+}
+
+/** プリセット再生 */
+function playAlarm(name='watch'){
+  const ctx = ensureAudio();
+  let t = ctx.currentTime;
+
+  switch(name){
+    // 一番“腕時計”っぽい：短い高音ピッ×2 を少し間を空けて2セット
+    case 'watch': {
+      for(let k=0;k<2;k++){
+        t = tone(2000, t, 0.09, {type:'triangle', attack:0.003, decay:0.05, sustain:0.0007, release:0.03}); t += 0.07;
+        t = tone(2000, t, 0.09, {type:'triangle', attack:0.003, decay:0.05, sustain:0.0007, release:0.03}); t += 0.22;
+      }
+      break;
+    }
+    // CASIO風：高→低のツートン（短め）×2
+    case 'casio': {
+      for(let k=0;k<2;k++){
+        t = tone(1975, t, 0.08, {type:'sine'}); t += 0.06;
+        t = tone(1310, t, 0.10, {type:'sine'}); t += 0.20;
+      }
+      break;
+    }
+    // SEIKO風：高め“ピッ”を3連
+    case 'seiko': {
+      for(let i=0;i<3;i++){ t = tone(1900, t, 0.085, {type:'sine'}); t += 0.10; }
+      break;
+    }
+    // チャイム：DING-DONG ぽく 2音
+    case 'chime': {
+      t = tone(1318, t, 0.22, {type:'sine', attack:0.005, decay:0.18}); t += 0.05; // E6
+      t = tone(987 , t, 0.28, {type:'sine', attack:0.005, decay:0.22});           // B5
+      break;
+    }
+    // ブザー：やや荒め（注意喚起）
+    case 'buzzer': {
+      for(let i=0;i<2;i++){
+        t = tone(420, t, 0.25, {type:'square', attack:0.005, decay:0.20, sustain:0.001, release:0.03, vibratoHz:20, vibratoDepth:8});
+        t += 0.12;
+      }
+      break;
+    }
+    // 徐々に高くなる3連
+    case 'ascending': {
+      [900, 1300, 1700].forEach(f=>{ t = tone(f, t, 0.10, {type:'triangle'}); t += 0.08; });
+      break;
+    }
+    // カウントダウン：低×3 → 高ロング
+    case 'countdown': {
+      for(let i=0;i<3;i++){ t = tone(700, t, 0.11, {type:'sine'}); t += 0.10; }
+      t = tone(1600, t, 0.35, {type:'triangle'});
+      break;
+    }
+    default: {
+      // 後方互換（旧“ピピピ”）
+      for(let i=0;i<2;i++){ t = tone(1200, t, 0.12, {type:'square'}); t += 0.18; }
+    }
+  }
+}
+
+  // 終了時の処理：ビープ2回＋赤点滅
+  function handleTileFinish(tile){
+    const el = getTileEl(tile);
+    if(el){
+      el.classList.remove('mt-warn5','mt-warn3','mt-warn1');
+      el.classList.add('mt-finished','mt-flash');
+    }
+    beep(2, 1200, 120, 220); // 「ピピピ」を2回
+  }
+
+  // ===== 複数タイマーしきい値監視 =====
+  setInterval(()=>{
+    multiTimers.forEach(t=>{
+      const el = t.el;
+      if(!el) return;
+      el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
+      const sec = Math.ceil(t.remain || 0);
+      if(sec <= 0){
+        el.classList.add('mt-finished','mt-flash');
+        playAlarm('watch');
+        t.running = false;
+      }else if(sec <= 60){
+        el.classList.add('mt-warn1');
+      }else if(sec <= 180){
+        el.classList.add('mt-warn3');
+      }else if(sec <= 300){
+        el.classList.add('mt-warn5');
+      }
+    });
+  }, 500);
+
+  // 初回起動画面はメニュー
+  show(menu);
+})();
+</script>
+</body>
+</html>
