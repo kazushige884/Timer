@@ -333,6 +333,9 @@
 <section id="multi" class="screen" aria-live="polite">
   <div class="multi-wrap">
     <div id="multiGrid" class="multi-grid layout-1" data-count="0"></div>
+    <div id="multiEmptyMsg" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#888; font-size:clamp(18px,3vh,24px); font-weight:700; text-align:center;">
+      右下の＋からタイマーを追加します
+    </div>
 
     <!-- 右下の追加ボタン＋メニュー戻る -->
     <div class="multi-actions">
@@ -900,6 +903,12 @@ function openTimeEditor(t, anchorEl){
     else if (n<=6) multiGrid.classList.add('layout-5-6');
     else if (n<=8) multiGrid.classList.add('layout-7-8');
     else multiGrid.classList.add('layout-9-12');
+
+    // --- 案内メッセージの表示/非表示 ---
+    const msg = document.getElementById('multiEmptyMsg');
+    if (msg){
+      msg.style.display = (n===0) ? 'flex' : 'none';
+    }
   }
 
   function toggleAddFabVisibility(){
