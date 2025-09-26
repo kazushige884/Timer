@@ -806,6 +806,9 @@ function openTimeEditor(t, anchorEl){
       if (p!=null){
         t.total = Math.max(1, p);
         if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+        t.finished = false;
+        const el = t.el || anchorEl;
+        if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
       return;
@@ -817,6 +820,9 @@ function openTimeEditor(t, anchorEl){
       if (sec!=null){
         t.total = Math.max(1, sec);
         if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+        t.finished = false;
+        const el = t.el || anchorEl;
+        if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
       ip.removeEventListener('change', handler);
@@ -945,7 +951,7 @@ function openTimeEditor(t, anchorEl){
     const t = {
       id: 'mt' + Date.now() + Math.random().toString(36).slice(2,6),
       title: 'テスト名',
-      total: 600, remain: 600, running: false, el: null
+      total: 600, remain: 600, running: false, finished: false, el: null
     };
     const card = document.createElement('div');
     card.className = 'multi-card';
@@ -967,8 +973,13 @@ function openTimeEditor(t, anchorEl){
     toggleAddFabVisibility();
 
     // 再生/一時停止
-    card.querySelector('.mc-toggle').addEventListener('click', ()=>{
-      t.running = !t.running;
+    ccard.querySelector('.mc-toggle').addEventListener('click', ()=>{
+      const willStart = !t.running;
+      t.running = willStart;
+      if (willStart){
+        t.finished = false;
+        if (t.el) t.el.classList.remove('mt-finished','mt-flash');
+      }
       updateCardUI(t);
     });
 
@@ -1257,9 +1268,21 @@ function playAlarm(name='watch'){
     multiTimers.forEach(t=>{
       const el = t.el;
       if(!el) return;
-      el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
+
       const sec = Math.ceil(t.remain || 0);
+
+      // すでに終了処理済みならクラス維持してスキップ
+      if (t.finished){
+        el.classList.add('mt-finished','mt-flash');
+        t.running = false;
+        return;
+      }
+
+      // 通常のしきい値クラス更新
+      el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
       if(sec <= 0){
+        // 終了は一度だけ発火
+        t.finished = true;
         el.classList.add('mt-finished','mt-flash');
         for (let i=0;i<2;i++){
           const a = new Audio("sounds/alarm.mp3");
