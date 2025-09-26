@@ -689,6 +689,11 @@ function updateRunTrackVisuals(forceFinish=false){
   cancelAnim();
   // 終了時アナウンスが未発火なら保険
   if (state.annPoints.has(0)) speakPoint(0);
+// 終了アラーム（alarm.mp3を2回）
+for (let i=0;i<2;i++){
+  const a = new Audio("sounds/alarm.mp3");
+  a.play().catch(()=>{});
+}
  
   // トラックを赤で点滅
   updateRunTrackVisuals(true);
@@ -1256,7 +1261,10 @@ function playAlarm(name='watch'){
       const sec = Math.ceil(t.remain || 0);
       if(sec <= 0){
         el.classList.add('mt-finished','mt-flash');
-        playAlarm('watch');
+        for (let i=0;i<2;i++){
+          const a = new Audio("sounds/alarm.mp3");
+          a.play().catch(()=>{});
+        }
         t.running = false;
       }else if(sec <= 60){
         el.classList.add('mt-warn1');
