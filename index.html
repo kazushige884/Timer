@@ -689,8 +689,7 @@ function updateRunTrackVisuals(forceFinish=false){
   cancelAnim();
   // 終了時アナウンスが未発火なら保険
   if (state.annPoints.has(0)) speakPoint(0);
-  // 複数人タイマーと同じ終了音
-  playAlarm('seiko');
+ 
   // トラックを赤で点滅
   updateRunTrackVisuals(true);
   // 背景も赤↔黒で点滅
@@ -713,6 +712,7 @@ function updateRunTrackVisuals(forceFinish=false){
     if (btnToggle) btnToggle.textContent = '⏸';
     runMsg.textContent = 'カウントダウン中…';
     cancelAnim();
+    unlockAndPreloadSounds();
     if (state.annPoints.has(-1)) speakPoint(-1); // 開始時アナウンス
     state.rafId = requestAnimationFrame(tick);
   }
@@ -1023,32 +1023,70 @@ timeEl.addEventListener('click', (e)=>{
   }
   if (btnToggle) btnToggle.addEventListener('click', togglePlay);
 
-  // ------- アナウンス（音声合成） -------
-  function speak(text){
-    try{
-      if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP';
-      // 簡易な男女表現（声色は端末依存）
-      if (state.voice === 'male'){ u.pitch = 0.8; u.rate = 1.0; }
-      else { u.pitch = 1.2; u.rate = 1.05; }
-      window.speechSynthesis.cancel(); // 前の発話を止める（被り防止）
-      window.speechSynthesis.speak(u);
-    }catch{}
-  }
-  function speakPoint(p){
-    if (p === -1){
-      speak('試験を開始します。');
-    }else if (p === 0){
-      speak('試験終了です。鉛筆を置いてください。');
-      flashEnd();
-    }else if (p === 60){
-      speak('残り一分です。');
-    }else if (p === 180){
-      speak('残り三分です。');
-    }else if (p === 300){
-      speak('残り五分です。');
+  // ------- アナウンス（録音ファイル再生） -------
+  // ファイル名は大小文字を厳密一致させてください（Netlifyはケースセンシティブ）
+  const soundFiles = {
+    male: {
+      '-1': 'sounds/start_male.mp3',
+       '0': 'sounds/end_male.mp3',
+      '60': 'sounds/1min_male.mp3',
+     '180': 'sounds/3min_male.mp3',
+     '300': 'sounds/5min_male.mp3',
+    },
+    female: {
+      '-1': 'sounds/start_female.mp3',
+       '0': 'sounds/end_female.mp3',
+      '60': 'sounds/1min_female.mp3',
+     '180': 'sounds/3min_female.mp3',
+     '300': 'sounds/5min_female.mp3',
     }
+  };
+
+  // オーディオ要素のキャッシュ
+  const audioCache = {};
+
+  function preloadSounds(){
+    ['male','female'].forEach(g=>{
+      Object.values(soundFiles[g]).forEach(src=>{
+        if (!audioCache[src]){
+          const a = new Audio(src);
+          a.preload = 'auto';
+          audioCache[src] = a;
+        }
+      });
+    });
+  }
+
+  // iOS/Safariの自動再生ロック解除：最初の操作で一瞬だけ再生→即停止
+  let soundsUnlocked = false;
+  function unlockAndPreloadSounds(){
+    if (soundsUnlocked) return;
+    preloadSounds();
+    const tries = [];
+    Object.values(audioCache).forEach(a=>{
+      try{
+        a.muted = true;
+        const p = a.play()
+          .then(()=>{ a.pause(); a.currentTime = 0; a.muted = false; })
+          .catch(()=>{ /* 無視（ロック中でも他の音で解除される） */ });
+        tries.push(p);
+      }catch{}
+    });
+    Promise.allSettled(tries).finally(()=>{ soundsUnlocked = true; });
+  }
+
+  function speakPoint(p){
+    const gender = state.voice === 'male' ? 'male' : 'female';
+    const key = String(p);
+    const src = soundFiles[gender][key];
+    if (!src) return;
+
+    const a = audioCache[src] || new Audio(src);
+    audioCache[src] = a; // 念のためキャッシュ
+    a.currentTime = 0;
+    a.play().catch(e => console.warn('音声再生エラー:', e));
+
+    if (p === 0) { flashEnd(); }
   }
 
   // 終了時に赤↔黒で点滅
