@@ -1264,40 +1264,46 @@ function playAlarm(name='watch'){
   }
 
   // ===== 複数タイマーしきい値監視 =====
-  setInterval(()=>{
-    multiTimers.forEach(t=>{
-      const el = t.el;
-      if(!el) return;
+  // ===== 複数タイマーしきい値監視（重複アラーム防止＆操作可） =====
+function playAlarmFileTwice(){
+  const a = new Audio("sounds/alarm.mp3");
+  a.play().then(()=>{
+    a.addEventListener('ended', ()=>{
+      const b = new Audio("sounds/alarm.mp3");
+      b.play().catch(()=>{});
+    }, { once: true });
+  }).catch(()=>{});
+}
 
-      const sec = Math.ceil(t.remain || 0);
+setInterval(()=>{
+  multiTimers.forEach(t=>{
+    const el = t.el;
+    if(!el) return;
 
-      // すでに終了処理済みならクラス維持してスキップ
-      if (t.finished){
-        el.classList.add('mt-finished','mt-flash');
-        t.running = false;
-        return;
+    // 枠の状態リセット
+    el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
+
+    const sec = Math.ceil(t.remain || 0);
+
+    if (sec <= 0){
+      el.classList.add('mt-finished','mt-flash');
+
+      // ★ 一度だけアラームを鳴らす
+      if (!t._alarmFired){
+        t._alarmFired = true;
+        t.running = false;  // カウントは止める（ボタン操作は妨げない）
+        playAlarmFileTwice();
       }
+    } else {
+      // 再スタート等で残時間が正に戻ったらフラグ解除
+      if (t._alarmFired) t._alarmFired = false;
 
-      // 通常のしきい値クラス更新
-      el.classList.remove('mt-warn5','mt-warn3','mt-warn1','mt-finished','mt-flash');
-      if(sec <= 0){
-        // 終了は一度だけ発火
-        t.finished = true;
-        el.classList.add('mt-finished','mt-flash');
-        for (let i=0;i<2;i++){
-          const a = new Audio("sounds/alarm.mp3");
-          a.play().catch(()=>{});
-        }
-        t.running = false;
-      }else if(sec <= 60){
-        el.classList.add('mt-warn1');
-      }else if(sec <= 180){
-        el.classList.add('mt-warn3');
-      }else if(sec <= 300){
-        el.classList.add('mt-warn5');
-      }
-    });
-  }, 500);
+      if (sec <= 60)        el.classList.add('mt-warn1');
+      else if (sec <= 180)  el.classList.add('mt-warn3');
+      else if (sec <= 300)  el.classList.add('mt-warn5');
+    }
+  });
+}, 500);
 
   // 初回起動画面はメニュー
   show(menu);
