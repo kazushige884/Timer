@@ -56,8 +56,8 @@
   /* 実行画面 */
   .run-wrap{margin:auto; display:flex; flex-direction:column; align-items:center; width:100%; gap:min(4vh,28px)}
   .run-title{
-    margin-top:4vh; /* さらに上へ */
-    margin-bottom:min(14vh, 100px); /* トラックとの間隔を広げる */
+    margin-top:1vh;                      /* さらに上へ */
+    margin-bottom:min(20vh, 120px);      /* ゲージとの間隔をさらに広く */
     font-size: clamp(30px, 6.75vh, 10.5vh);
     font-weight:700; text-align:center; opacity:.95;
     font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
@@ -107,14 +107,14 @@
   100%{ stroke-opacity:1 }
 }
 .tp-flash{ animation: tpFlashRed .6s linear infinite; } /* 終了時の赤点滅 */
-  .run-controls{display:flex; gap:min(3vw,24px); margin-top:min(12vh,96px); position:relative; z-index:2}
+  .run-controls{display:flex; gap:min(3vw,24px); margin-top:min(16vh,128px); position:relative; z-index:2}
   .btn.run{
-    min-width:3.2em; 
-    background:transparent; 
+    min-width:3em;
+    background:transparent;
     color:#000;
-    font-size:200%;   /* 少し小さく */
-    padding:0.35em 0.8em;  /* ボタンの縦横を縮小 */
-    font-family: "Hiragino Maru Gothic ProN","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
+    font-size:180%;            /* 200% → 180% に縮小（+10%小さく） */
+    padding:0.30em 0.70em;     /* ボタン縦横も少しだけ縮小 */
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic","Yu Gothic","Noto Sans JP",sans-serif;
     font-weight:700;
 }
   .btn.run.start{border-color:var(--accent)}
