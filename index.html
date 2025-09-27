@@ -813,7 +813,7 @@ function openTimeEditor(t, anchorEl){
       return;
     }
 
-    // iOSは秒に未対応 → HH:MM でセット
+        // iOSは秒に未対応 → HH:MM でセット
     ip.value = secToHMSval(t.total).slice(0,5);
 
     // ピッカーを確実に出すため、一時的に画面内＆フォーカス可能へ
@@ -840,7 +840,8 @@ function openTimeEditor(t, anchorEl){
       Object.assign(ip.style, prev);
     };
 
-    const handler = ()=>{
+    // ダイヤル操作中は input で逐次反映
+    const onInput = ()=>{
       const v = ip.value;
       const sec = timeValueToSec(v);
       if (sec!=null){
@@ -851,19 +852,26 @@ function openTimeEditor(t, anchorEl){
         if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
-      ip.removeEventListener('change', handler);
-      ip.removeEventListener('blur', cleanup);
+    };
+
+    // ピッカー確定/閉じ時にクリーンアップ
+    const onDone = ()=>{
+      ip.removeEventListener('input', onInput);
+      ip.removeEventListener('change', onDone);
+      ip.removeEventListener('blur', onDone);
       cleanup();
     };
-    ip.addEventListener('input', handler, { once:true });
-ip.addEventListener('change', handler, { once:true });
-ip.addEventListener('blur', cleanup, { once:true });
 
-ip.focus();
-ip.click();
-if (typeof ip.showPicker === 'function') {
-  try { ip.showPicker(); } catch(_) {}
-}
+    ip.addEventListener('input', onInput);      // 逐次更新（once なし）
+    ip.addEventListener('change', onDone);      // 確定時
+    ip.addEventListener('blur', onDone);        // 閉じた時の保険
+
+    if (typeof ip.showPicker === 'function'){
+      ip.showPicker();
+    }else{
+      ip.focus();
+      ip.click();
+    }
     return;
   }
 
