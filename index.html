@@ -256,8 +256,8 @@
 }
 /* iPad用の隠しtime入力 */
 .hidden-time-input{
-  position:fixed; left:-9999px; top:-9999px; width:0; height:0;
-  opacity:0; pointer-events:none;
+  position:absolute; top:0; left:0; width:1px; height:1px;
+  opacity:0; z-index:-1; pointer-events:auto;
 }
 
 
@@ -344,7 +344,7 @@
     </div>
   </div>
 <!-- 隠しtime入力（iPadのネイティブピッカーを呼び出すため） -->
-<input id="hiddenTimePicker" type="time" step="1" class="hidden-time-input" aria-hidden="true">
+<input id="hiddenTimePicker" type="time" step="60" class="hidden-time-input">
 </section>
 
 <!-- 設定画面 -->
@@ -855,15 +855,15 @@ function openTimeEditor(t, anchorEl){
       ip.removeEventListener('blur', cleanup);
       cleanup();
     };
-    ip.addEventListener('change', handler, { once:true });
-    ip.addEventListener('blur', cleanup, { once:true });
+    ip.addEventListener('input', handler, { once:true });
+ip.addEventListener('change', handler, { once:true });
+ip.addEventListener('blur', cleanup, { once:true });
 
-    if (typeof ip.showPicker === 'function'){
-      ip.showPicker();
-    }else{
-      ip.focus();
-      ip.click();
-    }
+ip.focus();
+ip.click();
+if (typeof ip.showPicker === 'function') {
+  try { ip.showPicker(); } catch(_) {}
+}
     return;
   }
 
