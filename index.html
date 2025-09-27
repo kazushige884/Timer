@@ -341,7 +341,7 @@
     </div>
   </div>
 <!-- 隠しtime入力（iPadのネイティブピッカーを呼び出すため） -->
-<input id="hiddenTimePicker" type="time" step="60" class="hidden-time-input">
+<!-- hidden time picker is created dynamically per card in JS -->
 </section>
 
 <!-- 設定画面 -->
@@ -792,38 +792,17 @@ function timeValueToSec(v){
 }
 
 function openTimeEditor(t, anchorEl){
-  // --- iPad：隠し <input type="time"> のネイティブダイヤルを確実に開く ---
+  // --- iPad：カードごとに一時 <input type="time"> を生成して独立管理 ---
   if (isIOS()){
-    const ip = document.getElementById('hiddenTimePicker');
-    if (!ip){
-      const cur = secToHMSval(t.total);
-      const nv  = prompt('時間を入力（HH:MM または HH:MM:SS）', cur);
-      const p   = parseHMS(nv);
-      if (p!=null){
-        t.total = Math.max(1, p);
-        if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
-        t.finished = false;
-        const el = t.el || anchorEl;
-        if (el) el.classList.remove('mt-finished','mt-flash');
-        updateCardUI(t);
-      }
-      return;
-    }
+    const ip = document.createElement('input');
+    ip.type = 'time';
+    ip.step = '60';
+    ip.className = 'hidden-time-input';
 
-    // iOSは秒に未対応 → HH:MM でセット
+    // iOSは秒に未対応 → HH:MM をセット
     ip.value = secToHMSval(t.total).slice(0,5);
 
-    // ピッカーを確実に出すため、一時的に画面内＆フォーカス可能へ
-    const prev = {
-      position: ip.style.position,
-      left: ip.style.left,
-      top: ip.style.top,
-      width: ip.style.width,
-      height: ip.style.height,
-      opacity: ip.style.opacity,
-      pointerEvents: ip.style.pointerEvents,
-      zIndex: ip.style.zIndex,
-    };
+    // 画面内に一時配置（見えない/最前）
     ip.style.position = 'fixed';
     ip.style.left = '50%';
     ip.style.top = '50%';
@@ -832,12 +811,13 @@ function openTimeEditor(t, anchorEl){
     ip.style.opacity = '0.001';
     ip.style.pointerEvents = 'auto';
     ip.style.zIndex = '999999';
+    document.body.appendChild(ip);
 
     const cleanup = ()=>{
-      Object.assign(ip.style, prev);
+      ip.remove(); // この入力は都度破棄（他カードへ影響しない）
     };
 
-    const handler = ()=>{
+    const onChange = ()=>{
       const v = ip.value;
       const sec = timeValueToSec(v);
       if (sec!=null){
@@ -848,19 +828,17 @@ function openTimeEditor(t, anchorEl){
         if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
-      ip.removeEventListener('change', handler);
-      ip.removeEventListener('blur', cleanup);
       cleanup();
     };
-    ip.addEventListener('input', handler);
-ip.addEventListener('change', handler, { once:true });
-ip.addEventListener('blur', cleanup, { once:true });
 
-ip.focus();
-ip.click();
-if (typeof ip.showPicker === 'function') {
-  try { ip.showPicker(); } catch(_) {}
-}
+    ip.addEventListener('change', onChange, { once:true });
+    ip.addEventListener('blur',   cleanup,  { once:true });
+
+    ip.focus();
+    ip.click();
+    if (typeof ip.showPicker === 'function') {
+      try { ip.showPicker(); } catch(_) {}
+    }
     return;
   }
 
@@ -868,13 +846,13 @@ if (typeof ip.showPicker === 'function') {
   const cur = Math.max(0, Math.floor(t.total));
   const ch = Math.floor(cur/3600), cm = Math.floor((cur%3600)/60), cs = cur%60;
 
-  const overlay = document.createElement('div');
-  ooverlay.style.cssText = `
+    const overlay = document.createElement('div');
+  overlay.style.cssText = `
     position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999;
     display:flex; align-items:center; justify-content:center;
   `;
-  const panel = document.createElement('div');
-  ppanel.style.cssText = `
+    const panel = document.createElement('div');
+  panel.style.cssText = `
     background:#121212; color:#fff; border:2px solid #2a2a2a; border-radius:12px;
     padding:16px; min-width:280px; font-family:inherit; box-shadow:0 10px 30px rgba(0,0,0,.5);
   `;
