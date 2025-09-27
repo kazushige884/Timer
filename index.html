@@ -744,7 +744,7 @@ for (let i=0;i<2;i++){
     if (state.running) return;
     state.running = true;
     state.lastTick = 0;
-    if (btnToggle) btnToggle.textContent = '⏸';
+    if (btnToggle) btnToggle.textContent = '||';
     runMsg.textContent = 'カウントダウン中…';
     cancelAnim();
     unlockAndPreloadSounds();
@@ -1021,7 +1021,7 @@ function openTimeEditor(t, anchorEl){
     timeEl.innerHTML = fmtHMS(Math.ceil(t.remain));
     const ratio = Math.max(0, Math.min(1, t.remain / t.total));
     barFill.style.width = (ratio*100).toFixed(2) + '%';
-    btn.textContent = t.running ? '⏸' : '▶︎';
+    btn.textContent = t.running ? '||' : '▶︎';
   }
 
   function createTimerCard(){
@@ -1112,7 +1112,7 @@ timeEl.addEventListener('click', (e)=>{
     backToMenuBtn.addEventListener('click', ()=> show(menu));
   }
 
-  // ▶︎/⏸ のトグルボタン
+  // ▶︎/|| のトグルボタン
   function togglePlay(){
     if (state.running) {
       pause();
