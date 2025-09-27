@@ -402,7 +402,7 @@
         <label><input type="checkbox" id="voiceMale">男性</label>
         <label><input type="checkbox" id="voiceFemale" checked>女性</label>
       </div>
-      <div class="msg">（音声はブラウザの読み上げ機能を使用。対応端末のみ）</div>
+      
     </div>
 
         <div class="foot-actions">
@@ -716,11 +716,9 @@ function updateRunTrackVisuals(forceFinish=false){
   cancelAnim();
   // 終了時アナウンスが未発火なら保険
   if (state.annPoints.has(0)) speakPoint(0);
-// 終了アラーム（alarm.mp3を2回）
-for (let i=0;i<2;i++){
-  const a = new Audio("sounds/alarm.mp3");
-  a.play().catch(()=>{});
-}
+// 終了アラーム（alarm.mp3を1回）
+const a = new Audio("sounds/alarm.mp3");
+a.play().catch(()=>{});
  
   // トラックを赤で点滅
   updateRunTrackVisuals(true);
@@ -1345,14 +1343,9 @@ function playAlarm(name='watch'){
 
   // ===== 複数タイマーしきい値監視 =====
   // ===== 複数タイマーしきい値監視（重複アラーム防止＆操作可） =====
-function playAlarmFileTwice(){
+function playAlarmFileOnce(){
   const a = new Audio("sounds/alarm.mp3");
-  a.play().then(()=>{
-    a.addEventListener('ended', ()=>{
-      const b = new Audio("sounds/alarm.mp3");
-      b.play().catch(()=>{});
-    }, { once: true });
-  }).catch(()=>{});
+  a.play().catch(()=>{});
 }
 
 setInterval(()=>{
@@ -1372,7 +1365,7 @@ setInterval(()=>{
       if (!t._alarmFired){
         t._alarmFired = true;
         t.running = false;  // カウントは止める（ボタン操作は妨げない）
-        playAlarmFileTwice();
+        playAlarmFileOnce();
       }
     } else {
       // 再スタート等で残時間が正に戻ったらフラグ解除
