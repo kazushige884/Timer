@@ -437,7 +437,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
 
   const goStart = $('#goStart'), goMulti = $('#goMulti');
   const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings');
-  const navBackMenu1 = $('#navBackMenu1'), navToRun = $('#navToRun'), navToRun2 = $('#navToRun2');
+  const navBackMenu1 = $('#navBackMenu1'), navToRun2 = $('#navToRun2');
 
   const timeText = $('#timeText'), barPath = $('#barPath'), runTitle = $('#runTitle');
 
@@ -484,10 +484,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   navToSettings.addEventListener('click', ()=> show(settings));
   navBackMenu1.addEventListener('click', ()=> show(menu));
   navToMenu.addEventListener('click', ()=> show(menu));
-  navToRun.addEventListener('click', ()=>{
-    applySettingsToRun();
-    show(run);
-  });
+
   navToRun2.addEventListener('click', ()=>{
     applySettingsToRun();
     show(run);
