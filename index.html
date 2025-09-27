@@ -748,7 +748,9 @@ for (let i=0;i<2;i++){
     runMsg.textContent = 'カウントダウン中…';
     cancelAnim();
     unlockAndPreloadSounds();
-    if (state.annPoints.has(-1)) speakPoint(-1); // 開始時アナウンス
+    if (state.annPoints.has(-1) && state.remainSec === state.durationSec) {
+  speakPoint(-1); // 開始時アナウンス（初回スタート時のみ）
+}
     state.rafId = requestAnimationFrame(tick);
   }
   function pause(){
