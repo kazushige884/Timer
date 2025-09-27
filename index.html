@@ -973,7 +973,7 @@ function openTimeEditor(t, anchorEl){
     toggleAddFabVisibility();
 
     // 再生/一時停止
-    ccard.querySelector('.mc-toggle').addEventListener('click', ()=>{
+    card.querySelector('.mc-toggle').addEventListener('click', ()=>{
       const willStart = !t.running;
       t.running = willStart;
       if (willStart){
