@@ -121,6 +121,7 @@
 /* 実行画面ボタンの塗りつぶしを枠色と一致させる */
 .btn.run.start{border-color:var(--accent); background:var(--accent);}
 .btn.run.stop{border-color:var(--pink);   background:var(--pink);}
+.btn.run.reset{border-color:#fff;         background:#fff;         color:#000;}
   /* 設定画面 */
   .settings-wrap{margin:auto; width:min(96vw, 1200px); display:flex; flex-direction:column; gap:min(3vh,28px); font-size:200%}
   .settings-wrap h2{margin:0 0 .4em; font-size: clamp(20px, 4vh, 5vh)}
@@ -321,6 +322,7 @@
     </div>
     <div class="run-controls">
       <button class="btn run start" id="btnToggle">▶︎</button>
+      <button class="btn run reset" id="btnReset">リセット</button>
     </div>
     <div class="msg" id="runMsg" style="display:none"></div>
   </div>
@@ -446,6 +448,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   const mPart = document.getElementById('mPart');
   const sPart = document.getElementById('sPart');
   const btnToggle = $('#btnToggle');
+  const btnReset  = $('#btnReset');
 
   const hI = $('#h'), mI = $('#m'), sI = $('#s');
   const quickBtns = document.querySelectorAll('.quick button');
@@ -1115,6 +1118,7 @@ timeEl.addEventListener('click', (e)=>{
     }
   }
   if (btnToggle) btnToggle.addEventListener('click', togglePlay);
+  if (btnReset)  btnReset.addEventListener('click', resetToStart);
 
   // ------- アナウンス（録音ファイル再生） -------
   // ファイル名は大小文字を厳密一致させてください（Netlifyはケースセンシティブ）
