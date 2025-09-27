@@ -533,11 +533,12 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   });
   // クリアボタン（合計を0に戻す）
   const btnClearQuick = document.getElementById('btnClearQuick');
-  if (btnClearQuick){
-    btnClearQuick.addEventListener('click', ()=>{
-      setFromTotal(0);
-    });
-  }
+if (btnClearQuick){
+  btnClearQuick.addEventListener('click', ()=>{
+    setFromTotal(0);
+    persistSettings(); // ★ クリアでも即時に「変更扱い」→ 停止＆スタンバイへ
+  });
+}
 
   voiceMale.addEventListener('change', ()=>{
     if (voiceMale.checked){ voiceFemale.checked = false; state.voice = 'male'; }
@@ -551,6 +552,8 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   // オートセーブ機能：入力のたびに保存＆状態更新
   function persistSettings(){
     const total = getTotalSeconds();
+    const prevTotal = state.durationSec|0;
+    const changed = total !== prevTotal;
     state.durationSec = total;
 
     // アナウンスの利用可否（5/3/1分前）：設定「分」以下の項目は選択不可
@@ -569,10 +572,22 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
       }
     });
 
-    // 残り時間は総時間を超えないように維持（未開始なら総時間に）
-    if (!state.running){
-      if (!state.remainSec || state.remainSec > total) state.remainSec = total;
+    // ★仕様変更：設定画面で時間が変更されたら、裏のタイマーは停止してリセット（スタンバイ）
+    if (changed){
+      state.running = false;
+      cancelAnim();
+      state.remainSec = total;
+      updateTimeText(state.remainSec);
+      updateBar();
+      if (btnToggle) btnToggle.textContent = '▶︎';
+      runMsg.textContent = total>0 ? '設定変更によりリセットしました。' : '合計時間が0秒です。時間を設定してください。';
+    }else{
+      // 残り時間は総時間を超えないように維持（未開始なら総時間に）
+      if (!state.running){
+        if (!state.remainSec || state.remainSec > total) state.remainSec = total;
+      }
     }
+
     state.saved = total > 0;
 
     // アナウンス設定を保存（無効化で外された分は自然に除外される）
