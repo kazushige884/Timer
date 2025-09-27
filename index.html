@@ -717,8 +717,7 @@ function updateRunTrackVisuals(forceFinish=false){
   // 終了時アナウンスが未発火なら保険
   if (state.annPoints.has(0)) speakPoint(0);
 // 終了アラーム（alarm.mp3を1回）
-const a = new Audio("sounds/alarm.mp3");
-a.play().catch(()=>{});
+playAlarmFileOnce();
  
   // トラックを赤で点滅
   updateRunTrackVisuals(true);
@@ -1157,27 +1156,35 @@ timeEl.addEventListener('click', (e)=>{
   }
 }
 
-  // iOS/Safariの自動再生ロック解除：各HTMLAudioをミュートで瞬間再生→停止して解錠
+  // iOS/Safariの自動再生ロック解除：WebAudio + HTMLAudio（mp3）を単一プローブで解除
 let soundsUnlocked = false;
-function unlockAndPreloadSounds(){
+async function unlockAndPreloadSounds(){
   if (soundsUnlocked) return;
   preloadSounds();
 
-  // WebAudioも念のため起こす（サスペンド対策）
-  try{ ensureAudio().resume().catch(()=>{}); }catch(_){}
+  // 1) WebAudio を無音で起こす（AudioContext 側の解除）
+  try{
+    const ctx = ensureAudio();
+    const osc = ctx.createOscillator();
+    const g   = ctx.createGain();
+    g.gain.value = 0.00001;
+    osc.connect(g).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.01);
+  }catch(_){}
 
-  const tries = [];
-  Object.values(audioCache).forEach(a=>{
-    try{
-      a.muted = true;
-      const p = a.play()
-        .then(()=>{ a.pause(); a.currentTime = 0; a.muted = false; })
-        .catch(()=>{ /* ロック中でも他の音で解除されるので無視 */ });
-      tries.push(p);
-    }catch(_){}
-  });
+  // 2) HTMLAudio は alarm.mp3 をミュートで一瞬だけ再生→停止→巻き戻し（他は鳴らさない）
+  try{
+    const probe = audioCache['sounds/alarm.mp3'] || new Audio('sounds/alarm.mp3');
+    audioCache['sounds/alarm.mp3'] = probe;
+    probe.muted = true;
+    await probe.play();
+    probe.pause();
+    probe.currentTime = 0;
+    probe.muted = false;
+  }catch(_){}
 
-  Promise.allSettled(tries).finally(()=>{ soundsUnlocked = true; });
+  soundsUnlocked = true;
 }
 
   function speakPoint(p){
@@ -1188,6 +1195,7 @@ function unlockAndPreloadSounds(){
 
     const a = audioCache[src] || new Audio(src);
     audioCache[src] = a; // 念のためキャッシュ
+    try{ a.pause(); }catch(_){}
     a.currentTime = 0;
     a.play().catch(e => console.warn('音声再生エラー:', e));
 
