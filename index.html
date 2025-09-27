@@ -630,13 +630,22 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   function applySettingsToRun(){
     const title = (testNameI.value||'').trim() || 'テスト名';
     runTitle.textContent = title;
-    state.remainSec = state.durationSec;
-    updateTimeText(state.remainSec);
+
+    // すでに開始済み（進行中 or 一時停止中）の場合は残り時間・状態を維持
+    // 初回のみ（remainSec が 0 以下か未設定）設定時間で初期化
+    if (!(state.remainSec > 0 || state.running)) {
+      state.remainSec = state.durationSec;
+    }
+
+    // 表示だけ現在状態に同期
+    updateTimeText(Math.ceil(state.remainSec));
     updateBar();
-    runMsg.textContent = '';
-    cancelAnim();
-    state.running = false;
-    if (btnToggle) btnToggle.textContent = '▶︎';
+
+    // 進行中なら "||"、停止/未開始なら "▶︎"
+    if (btnToggle) btnToggle.textContent = state.running ? '||' : '▶︎';
+
+    // メッセージは状態に合わせて軽く同期（リセットは行わない）
+    runMsg.textContent = state.running ? 'カウントダウン中…' : '';
   }
 
   // ------- タイマー表示 -------
@@ -762,6 +771,7 @@ playAlarmFileOnce();
     state.remainSec = state.durationSec;
     updateTimeText(state.remainSec);
     updateBar();
+    if (btnToggle) btnToggle.textContent = '▶︎';
     runMsg.textContent = '開始前の状態に戻しました';
   }
   function cancelAnim(){
