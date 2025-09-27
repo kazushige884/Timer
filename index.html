@@ -795,11 +795,10 @@ function timeValueToSec(v){
 }
 
 function openTimeEditor(t, anchorEl){
-  // --- iPad：隠し <input type="time" step="1"> のネイティブダイヤルを呼び出す ---
+  // --- iPad：隠し <input type="time"> のネイティブダイヤルを確実に開く ---
   if (isIOS()){
     const ip = document.getElementById('hiddenTimePicker');
     if (!ip){
-      // フォールバック：prompt（まずは安全策）
       const cur = secToHMSval(t.total);
       const nv  = prompt('時間を入力（HH:MM または HH:MM:SS）', cur);
       const p   = parseHMS(nv);
@@ -813,7 +812,34 @@ function openTimeEditor(t, anchorEl){
       }
       return;
     }
-    ip.value = secToHMSval(t.total);
+
+    // iOSは秒に未対応 → HH:MM でセット
+    ip.value = secToHMSval(t.total).slice(0,5);
+
+    // ピッカーを確実に出すため、一時的に画面内＆フォーカス可能へ
+    const prev = {
+      position: ip.style.position,
+      left: ip.style.left,
+      top: ip.style.top,
+      width: ip.style.width,
+      height: ip.style.height,
+      opacity: ip.style.opacity,
+      pointerEvents: ip.style.pointerEvents,
+      zIndex: ip.style.zIndex,
+    };
+    ip.style.position = 'fixed';
+    ip.style.left = '50%';
+    ip.style.top = '50%';
+    ip.style.width = '1px';
+    ip.style.height = '1px';
+    ip.style.opacity = '0.001';
+    ip.style.pointerEvents = 'auto';
+    ip.style.zIndex = '999999';
+
+    const cleanup = ()=>{
+      Object.assign(ip.style, prev);
+    };
+
     const handler = ()=>{
       const v = ip.value;
       const sec = timeValueToSec(v);
@@ -826,10 +852,18 @@ function openTimeEditor(t, anchorEl){
         updateCardUI(t);
       }
       ip.removeEventListener('change', handler);
+      ip.removeEventListener('blur', cleanup);
+      cleanup();
     };
-    ip.addEventListener('change', handler, {once:true});
-    if (typeof ip.showPicker === 'function'){ ip.showPicker(); }
-    else { ip.focus(); ip.click(); }
+    ip.addEventListener('change', handler, { once:true });
+    ip.addEventListener('blur', cleanup, { once:true });
+
+    if (typeof ip.showPicker === 'function'){
+      ip.showPicker();
+    }else{
+      ip.focus();
+      ip.click();
+    }
     return;
   }
 
