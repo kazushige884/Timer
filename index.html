@@ -256,8 +256,8 @@
 }
 /* iPad用の隠しtime入力 */
 .hidden-time-input{
-  position:fixed; left:-9999px; top:-9999px; width:0; height:0;
-  opacity:0; pointer-events:none;
+  position:absolute; top:0; left:0; width:1px; height:1px;
+  opacity:0; z-index:-1; pointer-events:auto;
 }
 
 
@@ -795,7 +795,7 @@ function timeValueToSec(v){
 }
 
 function openTimeEditor(t, anchorEl){
-  // --- iPad：隠し <input type="time"> のネイティブダイヤルを確実に開く ---
+  // --- iPad：隠し <input type="time"> のネイティブダイヤルを開く ---
   if (isIOS()){
     const ip = document.getElementById('hiddenTimePicker');
     if (!ip){
@@ -813,59 +813,60 @@ function openTimeEditor(t, anchorEl){
       return;
     }
 
-        // iOSは秒に未対応 → HH:MM でセット
+    // iOS は秒未対応 → HH:MM をセット
     ip.value = secToHMSval(t.total).slice(0,5);
 
-    // ピッカーを確実に出すため、一時的に画面内＆フォーカス可能へ
-const prev = {
-  position: ip.style.position,
-  left: ip.style.left,
-  top: ip.style.top,
-  width: ip.style.width,
-  height: ip.style.height,
-  opacity: ip.style.opacity,
-  pointerEvents: ip.style.pointerEvents,
-  zIndex: ip.style.zIndex,
-};
-ip.style.position = 'fixed';
-ip.style.left = '50%';
-ip.style.top = '50%';
-ip.style.width = '44px';
-ip.style.height = '44px';
-ip.style.opacity = '0.001';
-ip.style.pointerEvents = 'auto';
-ip.style.zIndex = '999999';
+    // 一時的に画面内＆フォーカス可能にしてから picker を出す
+    const prev = {
+      position: ip.style.position,
+      left: ip.style.left,
+      top: ip.style.top,
+      width: ip.style.width,
+      height: ip.style.height,
+      opacity: ip.style.opacity,
+      pointerEvents: ip.style.pointerEvents,
+      zIndex: ip.style.zIndex,
+    };
+    ip.style.position = 'fixed';
+    ip.style.left = '50%';
+    ip.style.top = '50%';
+    ip.style.width = '44px';
+    ip.style.height = '44px';
+    ip.style.opacity = '0.001';
+    ip.style.pointerEvents = 'auto';
+    ip.style.zIndex = '999999';
 
-const cleanup = ()=>{ Object.assign(ip.style, prev); };
+    const cleanup = ()=>{ Object.assign(ip.style, prev); };
 
-const onInput = ()=>{
-  const v = ip.value;
-  const sec = timeValueToSec(v);
-  if (sec!=null){
-    t.total = Math.max(1, sec);
-    if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
-    t.finished = false;
-    const el = t.el || anchorEl;
-    if (el) el.classList.remove('mt-finished','mt-flash');
-    updateCardUI(t);
+    const onInput = ()=>{
+      const v = ip.value;
+      const sec = timeValueToSec(v);
+      if (sec!=null){
+        t.total = Math.max(1, sec);
+        if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
+        t.finished = false;
+        const el = t.el || anchorEl;
+        if (el) el.classList.remove('mt-finished','mt-flash');
+        updateCardUI(t);
+      }
+    };
+
+    const onDone = ()=>{
+      ip.removeEventListener('input', onInput);
+      cleanup();
+    };
+
+    ip.addEventListener('input', onInput);
+    ip.addEventListener('change', onDone, { once:true });
+    ip.addEventListener('blur', onDone, { once:true });
+
+    if (typeof ip.showPicker === 'function'){
+      ip.showPicker();
+    }else{
+      ip.focus(); ip.click();
+    }
+    return; // PC 側に落ちない
   }
-};
-
-const onDone = ()=>{
-  ip.removeEventListener('input', onInput);
-  ip.removeEventListener('change', onDone);
-  ip.removeEventListener('blur', onDone);
-  cleanup();
-};
-
-ip.addEventListener('input', onInput);   // ← 操作中も反映
-ip.addEventListener('change', onDone);
-ip.addEventListener('blur', onDone);
-
-if (typeof ip.showPicker === 'function') { ip.showPicker(); }
-else { ip.focus(); ip.click(); }
-return;  // ← ここでPC側に落ちないように抜ける
-}        // ← ここで「if (isIOS()) { … }」を閉じる
 
   // --- PC：小さな入力パネル（H/M/S） ---
   const cur = Math.max(0, Math.floor(t.total));
