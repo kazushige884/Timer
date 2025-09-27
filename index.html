@@ -507,6 +507,22 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
     const s = sec%60;
     hI.value = h; mI.value = m; sI.value = s;
   }
+
+  // アナウンス（5/3/1分前）の使用可否を、設定時間に応じて更新
+  // 仕様：「設定時間に入力された時間 以上 の 5分/3分/1分 前は選択不可」
+  // 例：総時間が3分(180s) → 300,180 を disabled、60 は可
+  function updateAnnDisabled(total){
+    const mins = [300,180,60];
+    mins.forEach(sec=>{
+      const cb = Array.from(annChecks).find(c=> parseInt(c.value,10)===sec);
+      if (!cb) return;
+      const shouldDisable = total <= sec; // 「以上」→ total <= 閾値 は無効化
+      cb.disabled = shouldDisable;
+      if (shouldDisable) cb.checked = false;
+      const lab = cb.closest('label');
+      if (lab) lab.style.opacity = shouldDisable ? '.4' : '1';
+    });
+  }
   quickBtns.forEach(b=>{
     b.addEventListener('click', ()=>{
       const add = parseInt(b.dataset.add,10) || 0;
@@ -544,7 +560,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
       const v = parseInt(chk.value,10); // -1, 300, 180, 60, 0
       if (v === 300 || v === 180 || v === 60){
         const vMin = v / 60;
-        const disable = (vMin <= setMin);
+        const disable = (total <= v);
         chk.disabled = disable;
         if (disable) chk.checked = false; // 無効化時は外す
       }else{
