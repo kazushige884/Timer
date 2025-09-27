@@ -151,9 +151,9 @@
 }
   .checks{display:flex; align-items:center; gap:1em; flex-wrap:wrap}
   .checks label{display:flex; align-items:center; gap:.4em}
-/* 追加：チェックボックスを3倍に拡大 */
+/* 追加：チェックボックスを現在の60%に縮小（以前は scale(3) ） */
 .checks input[type="checkbox"]{
-  transform: scale(3);
+  transform: scale(1.8);
   transform-origin: left center;
   margin-right:.4em;
 }
@@ -536,13 +536,30 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   function persistSettings(){
     const total = getTotalSeconds();
     state.durationSec = total;
+
+    // アナウンスの利用可否（5/3/1分前）：設定「分」以下の項目は選択不可
+    // 例：3分なら「3分前」「1分前」を disabled（要件の例に合わせる）
+    const setMin = Math.floor(total / 60);
+    annChecks.forEach(chk=>{
+      const v = parseInt(chk.value,10); // -1, 300, 180, 60, 0
+      if (v === 300 || v === 180 || v === 60){
+        const vMin = v / 60;
+        const disable = (vMin <= setMin);
+        chk.disabled = disable;
+        if (disable) chk.checked = false; // 無効化時は外す
+      }else{
+        // 開始(-1)・終了(0)は常に選択可能
+        chk.disabled = false;
+      }
+    });
+
     // 残り時間は総時間を超えないように維持（未開始なら総時間に）
     if (!state.running){
       if (!state.remainSec || state.remainSec > total) state.remainSec = total;
     }
     state.saved = total > 0;
 
-    // アナウンス設定を保存
+    // アナウンス設定を保存（無効化で外された分は自然に除外される）
     const points = new Set();
     annChecks.forEach(chk => { if (chk.checked) points.add(parseInt(chk.value,10)); });
     state.annPoints = points;
