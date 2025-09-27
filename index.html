@@ -792,53 +792,92 @@ function timeValueToSec(v){
 }
 
 function openTimeEditor(t, anchorEl){
-  // --- iPad：カードごとに一時 <input type="time"> を生成して独立管理 ---
+  // --- iPad：ネイティブ風ホイール（select×3）で「時・分・秒」を独立設定 ---
   if (isIOS()){
-    const ip = document.createElement('input');
-    ip.type = 'time';
-    ip.step = '60';
-    ip.className = 'hidden-time-input';
+    const cur = Math.max(0, Math.floor(t.total));
+    const ch = Math.floor(cur/3600);
+    const cm = Math.floor((cur%3600)/60);
+    const cs = cur%60;
 
-    // iOSは秒に未対応 → HH:MM をセット
-    ip.value = secToHMSval(t.total).slice(0,5);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999;
+      display:flex; align-items:center; justify-content:center;
+    `;
+    const panel = document.createElement('div');
+    panel.style.cssText = `
+      background:#121212; color:#fff; border:2px solid #2a2a2a; border-radius:12px;
+      padding:16px; min-width:320px; font-family:inherit; box-shadow:0 10px 30px rgba(0,0,0,.5);
+    `;
 
-    // 画面内に一時配置（見えない/最前）
-    ip.style.position = 'fixed';
-    ip.style.left = '50%';
-    ip.style.top = '50%';
-    ip.style.width = '1px';
-    ip.style.height = '1px';
-    ip.style.opacity = '0.001';
-    ip.style.pointerEvents = 'auto';
-    ip.style.zIndex = '999999';
-    document.body.appendChild(ip);
-
-    const cleanup = ()=>{
-      ip.remove(); // この入力は都度破棄（他カードへ影響しない）
+    const buildOptions = (max, selected) => {
+      const opts = [];
+      for (let i=0;i<=max;i++){
+        const v = String(i).padStart(2,'0');
+        opts.push(`<option value="${i}" ${i===selected?'selected':''}>${v}</option>`);
+      }
+      return opts.join('');
     };
 
-    const onChange = ()=>{
-      const v = ip.value;
-      const sec = timeValueToSec(v);
-      if (sec!=null){
-        t.total = Math.max(1, sec);
+    panel.innerHTML = `
+      <div style="font-weight:800; margin-bottom:10px; text-align:center;">時間を入力</div>
+      <div style="display:flex; gap:10px; align-items:center; justify-content:center; margin-bottom:12px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <select id="selH" style="font-size:22px; padding:.35em .5em; background:#111; color:#fff; border:2px solid #444; border-radius:10px;">
+            ${buildOptions(99, ch)}
+          </select>
+          <span style="opacity:.9;">時間</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <select id="selM" style="font-size:22px; padding:.35em .5em; background:#111; color:#fff; border:2px solid #444; border-radius:10px;">
+            ${buildOptions(59, cm)}
+          </select>
+          <span style="opacity:.9;">分</span>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <select id="selS" style="font-size:22px; padding:.35em .5em; background:#111; color:#fff; border:2px solid #444; border-radius:10px;">
+            ${buildOptions(59, cs)}
+          </select>
+          <span style="opacity:.9;">秒</span>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button id="cancelBtn" style="background:#333; color:#fff; border:1px solid #444; border-radius:8px; padding:.5em 1.0em; font-weight:700;">キャンセル</button>
+        <button id="okBtn" style="background:#7ee0ff; color:#000; border:2px solid #7ee0ff; border-radius:8px; padding:.5em 1.0em; font-weight:800;">OK</button>
+      </div>
+    `;
+
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    const selH = panel.querySelector('#selH');
+    const selM = panel.querySelector('#selM');
+    const selS = panel.querySelector('#selS');
+    const ok = panel.querySelector('#okBtn');
+    const cancel = panel.querySelector('#cancelBtn');
+
+    function close(){ overlay.remove(); }
+    function submit(){
+      const H = Math.max(0, parseInt(selH.value||'0',10));
+      const M = Math.max(0, Math.min(59, parseInt(selM.value||'0',10)));
+      const S = Math.max(0, Math.min(59, parseInt(selS.value||'0',10)));
+      const total = H*3600 + M*60 + S;
+      if (total > 0){
+        t.total = total;
         if (!t.running) t.remain = t.total; else t.remain = Math.min(t.remain, t.total);
         t.finished = false;
         const el = t.el || anchorEl;
         if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
-      cleanup();
-    };
-
-    ip.addEventListener('change', onChange, { once:true });
-    ip.addEventListener('blur',   cleanup,  { once:true });
-
-    ip.focus();
-    ip.click();
-    if (typeof ip.showPicker === 'function') {
-      try { ip.showPicker(); } catch(_) {}
+      close();
     }
+
+    ok.addEventListener('click', submit);
+    cancel.addEventListener('click', close);
+    overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
+
+    setTimeout(()=>{ try{ selM.focus(); selM.click(); }catch(_){} }, 0);
     return;
   }
 
