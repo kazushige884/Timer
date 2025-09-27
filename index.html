@@ -76,7 +76,6 @@
   .sep{ margin:0; padding:0; } /* 間隔ゼロ */
     .sep.colon{ display:inline-block; transform:none; } /* コロンの縮小を解除して標準幅に */
 
-
   /* 時計を囲むトラック（左右半円・上下直線） */
   .timer-track{
     position:relative;
@@ -259,8 +258,6 @@
   position:absolute; top:0; left:0; width:1px; height:1px;
   opacity:0; z-index:-1; pointer-events:auto;
 }
-
-
 
   @media (max-width:600px){
     .title-box{min-width:220px}
@@ -750,7 +747,7 @@ for (let i=0;i<2;i++){
     const h = Math.floor(sec/3600);
     const m = Math.floor((sec%3600)/60);
     const s = Math.floor(sec%60);
-    return `${two(h)}<span class="sep colon">:</span>${two(m)}<span class="sep colon">:</span>${two(s)}`;
+    return ${two(h)}<span class="sep colon">:</span>${two(m)}<span class="sep colon">:</span>${two(s)};
   }
   // 入力文字列 "HH:MM:SS" / "MM:SS" / "SS" を秒に変換（全角コロン・空白除去対応）
   function parseHMS(str){
@@ -783,7 +780,7 @@ function secToHMSval(sec){
   const h = String(Math.floor(sec/3600)).padStart(2,'0');
   const m = String(Math.floor((sec%3600)/60)).padStart(2,'0');
   const s = String(sec%60).padStart(2,'0');
-  return `${h}:${m}:${s}`;
+  return ${h}:${m}:${s};
 }
 
 function timeValueToSec(v){
@@ -795,7 +792,7 @@ function timeValueToSec(v){
 }
 
 function openTimeEditor(t, anchorEl){
-  // --- iPad：隠し <input type="time"> のネイティブダイヤルを開く ---
+  // --- iPad：隠し <input type="time"> のネイティブダイヤルを確実に開く ---
   if (isIOS()){
     const ip = document.getElementById('hiddenTimePicker');
     if (!ip){
@@ -813,10 +810,10 @@ function openTimeEditor(t, anchorEl){
       return;
     }
 
-    // iOS は秒未対応 → HH:MM をセット
+    // iOSは秒に未対応 → HH:MM でセット
     ip.value = secToHMSval(t.total).slice(0,5);
 
-    // 一時的に画面内＆フォーカス可能にしてから picker を出す
+    // ピッカーを確実に出すため、一時的に画面内＆フォーカス可能へ
     const prev = {
       position: ip.style.position,
       left: ip.style.left,
@@ -830,15 +827,17 @@ function openTimeEditor(t, anchorEl){
     ip.style.position = 'fixed';
     ip.style.left = '50%';
     ip.style.top = '50%';
-    ip.style.width = '44px';
-    ip.style.height = '44px';
+    ip.style.width = '1px';
+    ip.style.height = '1px';
     ip.style.opacity = '0.001';
     ip.style.pointerEvents = 'auto';
     ip.style.zIndex = '999999';
 
-    const cleanup = ()=>{ Object.assign(ip.style, prev); };
+    const cleanup = ()=>{
+      Object.assign(ip.style, prev);
+    };
 
-    const onInput = ()=>{
+    const handler = ()=>{
       const v = ip.value;
       const sec = timeValueToSec(v);
       if (sec!=null){
@@ -849,23 +848,20 @@ function openTimeEditor(t, anchorEl){
         if (el) el.classList.remove('mt-finished','mt-flash');
         updateCardUI(t);
       }
-    };
-
-    const onDone = ()=>{
-      ip.removeEventListener('input', onInput);
+      ip.removeEventListener('change', handler);
+      ip.removeEventListener('blur', cleanup);
       cleanup();
     };
+    ip.addEventListener('input', handler, { once:true });
+ip.addEventListener('change', handler, { once:true });
+ip.addEventListener('blur', cleanup, { once:true });
 
-    ip.addEventListener('input', onInput);
-    ip.addEventListener('change', onDone, { once:true });
-    ip.addEventListener('blur', onDone, { once:true });
-
-    if (typeof ip.showPicker === 'function'){
-      ip.showPicker();
-    }else{
-      ip.focus(); ip.click();
-    }
-    return; // PC 側に落ちない
+ip.focus();
+ip.click();
+if (typeof ip.showPicker === 'function') {
+  try { ip.showPicker(); } catch(_) {}
+}
+    return;
   }
 
   // --- PC：小さな入力パネル（H/M/S） ---
@@ -873,16 +869,16 @@ function openTimeEditor(t, anchorEl){
   const ch = Math.floor(cur/3600), cm = Math.floor((cur%3600)/60), cs = cur%60;
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = `
+  overlay.style.cssText = 
     position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999;
     display:flex; align-items:center; justify-content:center;
-  `;
+  ;
   const panel = document.createElement('div');
-  panel.style.cssText = `
+  panel.style.cssText = 
     background:#121212; color:#fff; border:2px solid #2a2a2a; border-radius:12px;
     padding:16px; min-width:280px; font-family:inherit; box-shadow:0 10px 30px rgba(0,0,0,.5);
-  `;
-  panel.innerHTML = `
+  ;
+  panel.innerHTML = 
     <div style="font-weight:800; margin-bottom:8px;">時間を入力</div>
     <div style="display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px;">
       <input id="ih" type="number" min="0" max="99" value="${ch}" style="width:4.2em; text-align:center; background:#111; color:#fff; border:2px solid #444; border-radius:8px; padding:.25em .4em;"> <span>時間</span>
@@ -893,7 +889,7 @@ function openTimeEditor(t, anchorEl){
       <button id="cancelBtn" style="background:#333; color:#fff; border:1px solid #444; border-radius:8px; padding:.4em .8em; font-weight:700;">キャンセル</button>
       <button id="okBtn" style="background:#7ee0ff; color:#000; border:2px solid #7ee0ff; border-radius:8px; padding:.4em .9em; font-weight:800;">OK</button>
     </div>
-  `;
+  ;
   overlay.appendChild(panel);
   document.body.appendChild(overlay);
 
@@ -990,7 +986,7 @@ function openTimeEditor(t, anchorEl){
     };
     const card = document.createElement('div');
     card.className = 'multi-card';
-    card.innerHTML = `
+    card.innerHTML = 
       <div class="mc-title">テスト名</div>
       <div class="mc-time"><span>00</span><span class="sep colon">:</span><span>10</span><span class="sep colon">:</span><span>00</span></div>
       <div class="mc-bar"><div class="mc-bar-fill" style="width:100%"></div></div>
@@ -998,7 +994,7 @@ function openTimeEditor(t, anchorEl){
         <button class="btn mc-toggle">▶︎</button>
         <button class="btn mc-delete">消去</button>
       </div>
-    `;
+    ;
     multiGrid.appendChild(card);
     t.el = card;
     multiTimers.push(t);
@@ -1155,7 +1151,7 @@ timeEl.addEventListener('click', (e)=>{
   // タイル(=タイマー枠)のDOMを見つける（プロパティ差異を吸収）
   function getTileEl(tile){
     return tile.el || tile.elem || tile.node || tile.card || tile.root ||
-           (tile.id ? document.querySelector(`[data-tile-id="${tile.id}"]`) : null);
+           (tile.id ? document.querySelector([data-tile-id="${tile.id}"]) : null);
   }
 
   // 残り時間に応じて枠クラスを更新（5分/3分/1分）
