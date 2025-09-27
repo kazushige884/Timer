@@ -1156,22 +1156,22 @@ timeEl.addEventListener('click', (e)=>{
     });
   }
 
-  // iOS/Safariの自動再生ロック解除：最初の操作で一瞬だけ再生→即停止
+  // iOS/Safariの自動再生ロック解除：無音のWebAudioを一瞬だけ鳴らす（HTMLAudioは再生しない）
   let soundsUnlocked = false;
   function unlockAndPreloadSounds(){
     if (soundsUnlocked) return;
     preloadSounds();
-    const tries = [];
-    Object.values(audioCache).forEach(a=>{
-      try{
-        a.muted = true;
-        const p = a.play()
-          .then(()=>{ a.pause(); a.currentTime = 0; a.muted = false; })
-          .catch(()=>{ /* 無視（ロック中でも他の音で解除される） */ });
-        tries.push(p);
-      }catch{}
-    });
-    Promise.allSettled(tries).finally(()=>{ soundsUnlocked = true; });
+    try{
+      // WebAudio の無音発振でロック解除（HTMLAudio を play しない）
+      const ctx = ensureAudio();
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      g.gain.value = 0.00001;
+      osc.connect(g).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.01);
+    }catch(_){}
+    soundsUnlocked = true;
   }
 
   function speakPoint(p){
