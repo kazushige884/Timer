@@ -166,7 +166,10 @@
   .msg{color:#ffd966; font-size:clamp(14px,2.2vh,18px)}
 
   /* ヘッダーナビ（軽量） */
-  .topnav{ position:fixed; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:linear-gradient(#000, #060606); border-bottom:1px solid #111; z-index: 9999; }
+  .topnav{
+    position:fixed; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 12px; background:linear-gradient(#000, #060606); border-bottom:1px solid #111; z-index: 9999;
+  }
   .topnav .small{font-weight:700; opacity:.8}
   .topnav .navbtn{
     background:#333; color:#ccc; border:1px solid #333; border-radius:10px; padding:.3em .7em; font-weight:700;
@@ -284,9 +287,12 @@
   background:var(--bg);
 }
 .sched-clock{
-  position:fixed; top:8px; left:12px; /* 左上に配置（ボタンと干渉しない距離） */
+  position:fixed;
+/* 旧) top:60px; を2行構成に置換（非対応ブラウザは60pxが効く） */
+  top: 60px;
+  top: calc(48px + env(safe-area-inset-top) + 12px);
+  left:12px;
   color:#fff; font-weight:900;
-  /* フォントサイズ：2倍に変更 */
   font-size: clamp(48px, 9.6vh, 104px);
   letter-spacing:.02em; z-index:3;
 }
@@ -466,7 +472,7 @@
 
     <div class="sched-center">
       <input id="schedTitle" class="sched-title" placeholder="タイトルを入力">
-      <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="ここに予定を入力…"></div>>
+      <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="ここに予定を入力…"></div>
     </div>
   </div>
 </section>
