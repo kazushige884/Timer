@@ -277,28 +277,6 @@
 .mt-flash{
   animation: mtFlashRed .5s linear infinite;
 }
-/* 予定表ボタン（クリーム） */
-.btn.schedule{ background:#fff3b0; border-color:#fff3b0; color:#000; }
-
-/* 予定表画面 */
-#schedule{ background:#000; }
-.schedule-clock{
-  position:fixed; top:12px; right:12px;
-  color:#fff; font-weight:800; font-size:clamp(18px,3vh,28px);
-}
-.schedule-wrap{
-  position:absolute; inset:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:12px; padding:min(4vw,24px);
-}
-.schedule-input{
-  background:#111; color:#fff; border:2px solid #444; border-radius:16px;
-  padding:12px; resize:none; outline:none;
-  box-shadow:0 6px 20px rgba(0,0,0,.35);
-}
-.schedule-actions{
-  position:fixed; right:20px; bottom:20px;
-}
 </style>
 </head>
 <body>
@@ -312,7 +290,6 @@
     <div class="menu-buttons">
       <button class="btn start" id="goStart">クラス全員で使用する</button>
       <button class="btn settings" id="goMulti">複数人で使用する</button>
-      <button class="btn schedule" id="goSchedule">予定表</button>
     </div>
     <div class="msg" id="menuMsg" aria-live="polite"></div>
   </div>
@@ -367,15 +344,6 @@
   </div>
 <!-- 隠しtime入力（iPadのネイティブピッカーを呼び出すため） -->
 <!-- hidden time picker is created dynamically per card in JS -->
-</section>
-
-<!-- 予定表画面 -->
-<section id="schedule" class="screen" aria-live="polite">
-  <div class="schedule-clock">現在の時刻：<span id="scheduleClock">--:--</span></div>
-  <div id="scheduleWrap" class="schedule-wrap"></div>
-  <div class="schedule-actions">
-    <button id="scheduleAddBtn" class="add-fab">＋</button>
-  </div>
 </section>
 
 <!-- 設定画面 -->
@@ -463,20 +431,15 @@
 
   // ------- 要素 -------
   const $ = sel => document.querySelector(sel);
-    const menu = $('#menu'), run = $('#run'), settings = $('#settings'), multi = $('#multi'), schedule = $('#schedule');
+    const menu = $('#menu'), run = $('#run'), settings = $('#settings'), multi = $('#multi');
   const menuMsg = $('#menuMsg'), runMsg = $('#runMsg'), settingsMsg = $('#settingsMsg');
   const multiGrid = document.getElementById('multiGrid');
   const addTimerBtn = document.getElementById('addTimerBtn');
 const hiddenTimePicker = document.getElementById('hiddenTimePicker');
 
-  const goStart = $('#goStart'), goMulti = $('#goMulti'), goSchedule = $('#goSchedule');
+  const goStart = $('#goStart'), goMulti = $('#goMulti');
   const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings');
   const navBackMenu1 = $('#navBackMenu1'), navToRun2 = $('#navToRun2');
-
-  // 予定表用DOM
-  const scheduleClock = document.getElementById('scheduleClock');
-  const scheduleWrap  = document.getElementById('scheduleWrap');
-  const scheduleAddBtn= document.getElementById('scheduleAddBtn');
 
   const timeText = $('#timeText'), barPath = $('#barPath'), runTitle = $('#runTitle');
 
@@ -496,7 +459,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
 
   // ------- 画面切替 -------
   function show(id){
-    [menu, run, settings, document.getElementById('multi'), document.getElementById('schedule')].forEach(sc => sc && sc.classList.remove('active'));
+    [menu, run, settings, document.getElementById('multi')].forEach(sc => sc && sc.classList.remove('active'));
     id.classList.add('active');
   }
 
@@ -520,12 +483,6 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   goStart.addEventListener('click', ()=>{
     applySettingsToRun();
     show(run);
-  });
-  goSchedule.addEventListener('click', ()=>{
-    show(schedule);
-    if (!scheduleInputs.length) addScheduleInput(); // 最初の入力欄を用意
-    startScheduleClock(); // 時刻表示を開始
-    layoutScheduleInputs(); // レイアウト適用
   });
   navToSettings.addEventListener('click', ()=> show(settings));
   navBackMenu1.addEventListener('click', ()=> show(menu));
@@ -1547,79 +1504,7 @@ setInterval(()=>{
   });
 }, 500);
 
-  // ===== 予定表ロジック =====
-let scheduleInputs = [];
-let clockTimer = null;
-
-function updateClock(){
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  if (scheduleClock) scheduleClock.textContent = `${hh}:${mm}`;
-}
-function startScheduleClock(){
-  if (clockTimer) return;
-  updateClock();
-  clockTimer = setInterval(updateClock, 1000);
-}
-function stopScheduleClock(){
-  if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
-}
-
-// 入力欄追加
-function addScheduleInput(value=''){
-  if (!scheduleWrap) return;
-  const ta = document.createElement('textarea');
-  ta.className = 'schedule-input';
-  ta.value = value;
-  scheduleWrap.appendChild(ta);
-  scheduleInputs.push(ta);
-  layoutScheduleInputs();
-  ta.focus();
-}
-
-// すべて1画面に収めるレイアウト
-function layoutScheduleInputs(){
-  if (!scheduleInputs.length) return;
-  const vh = window.innerHeight;
-  const vw = window.innerWidth;
-
-  // 1つ目は固定（幅=画面の半分, 高さ=画面の1/5）
-  const firstH = Math.max(80, vh * 0.20);
-  const firstW = Math.min(vw * 0.50, 900);
-
-  // 残りスペースを他の入力欄で均等配分。必要に応じ小さくして詰める。
-  const others = Math.max(0, scheduleInputs.length - 1);
-  const topBottomPad = Math.min(vh*0.08, 72); // 余白(上下合計)
-  const remainH = Math.max(0, vh - firstH - topBottomPad - 100); // 下部ボタン等の余白
-
-  const perH = others ? Math.max(40, Math.min(firstH * 0.65, remainH / others)) : 0;
-
-  scheduleInputs.forEach((el, i)=>{
-    const isFirst = (i === 0);
-    const h = isFirst ? firstH : perH;
-
-    // 2つ目以降は段階的に幅を縮小（最小30vw）
-    let w;
-    if (isFirst){
-      w = firstW;
-    }else{
-      const shrink = Math.min(0.30, i * 0.06); // 2個目以降 6%ずつ縮小、最大30%
-      w = Math.max(vw * (0.50 - shrink), vw * 0.30);
-    }
-
-    el.style.height = `${h}px`;
-    el.style.width  = `${w}px`;
-    el.style.fontSize = isFirst ? 'clamp(16px, 2.2vh, 20px)' : 'clamp(12px, 1.8vh, 16px)';
-  });
-}
-
-if (scheduleAddBtn){
-  scheduleAddBtn.addEventListener('click', ()=> addScheduleInput());
-}
-window.addEventListener('resize', layoutScheduleInputs);
-
-// 初回起動画面はメニュー
+  // 初回起動画面はメニュー
   show(menu);
 })();
 </script>
