@@ -303,12 +303,12 @@
 }
 .sched-title{
   width:min(80vw, 1000px);
-  height: min(13vh, 132px); /* 縦をやや狭く */
+  height: min(16vh, 160px);
   background:#111; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
-  padding:.35em .6em; font-weight:800; text-align:center;
-  /* フォントサイズを1.2倍（JSで微調整も継続） */
-  font-size: clamp(28.8px, 7.8vh, 86.4px);
-  line-height:1.12;
+  padding:.4em .6em; font-weight:800; text-align:center;
+  /* 枠に合わせて大きく：まずは大きめ基準を与える（JSで微調整） */
+  font-size: clamp(28.8px, 7.8vh, 86.4px); /* ★ 1.2倍に拡大 */
+  line-height:1.15;
 }
 .sched-body{
   width:min(80vw, 1000px);
@@ -320,6 +320,51 @@
 
 /* 予定表画面の右上ボタン */
 #schedToMenu, #schedToRun{ font-weight:800; }
+/* 掲示板本文を contenteditable に */
+.sched-body[contenteditable="true"]{
+  white-space: pre-wrap;
+  outline: none;
+}
+/* 空のときプレースホルダ表示 */
+.sched-body[contenteditable="true"]:empty:before{
+  content: attr(data-placeholder);
+  opacity: .5;
+}
+
+/* 右側ツールウィンドウ */
+.sched-tools{
+  position: fixed;
+  top: 72px;                /* 上部ナビの直下に揃える */
+  right: 12px;              /* 画面右端 */
+  width: 180px;
+  background: #111;
+  border: 2px solid #2a2a2a;
+  border-radius: 12px;
+  padding: 10px;
+  z-index: 5;
+  box-shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+.sched-tools .tool-title{
+  font-weight: 800; font-size: 14px; opacity:.9; margin-bottom:6px;
+}
+.sched-tools .tool-row{
+  display:flex; gap:8px; align-items:center; justify-content:flex-start;
+  margin: 8px 0;
+}
+.sched-tools button{
+  background:#222; color:#ddd; border:1px solid #333; border-radius:8px;
+  padding:.35em .6em; font-weight:700; cursor:pointer;
+}
+.sched-tools button:active{ transform: scale(.98); }
+.sched-tools .color{
+  width:26px; height:26px; border-radius:6px; padding:0; border:2px solid #444;
+}
+.sched-tools .wide{ flex:1; }
+
+/* 小画面では少し小さく */
+@media (max-width: 640px){
+  .sched-tools{ width: 160px; right: 8px; }
+}
 </style>
 </head>
 <body>
@@ -333,7 +378,7 @@
     <div class="menu-buttons">
       <button class="btn start" id="goStart">クラス全員で使用する</button>
       <button class="btn settings" id="goMulti">複数人で使用する</button>
-      <button class="btn schedule" id="goSchedule">予定表</button>
+      <button class="btn schedule" id="goSchedule">掲示板</button>
     </div>
     <div class="msg" id="menuMsg" aria-live="polite"></div>
   </div>
@@ -346,6 +391,7 @@
     <div>
       <button class="navbtn" id="navToMenu">メニュー</button>
       <button class="navbtn" id="navToSettings">設定</button>
+      <button class="navbtn" id="navToSchedule">掲示板</button>
     </div>
   </div>
   <div class="run-wrap">
@@ -400,12 +446,30 @@
         <button class="navbtn" id="schedToRun">実行</button>
       </div>
     </div>
-
+    <!-- 掲示板 編集ツール -->
+    <div class="sched-tools" id="schedTools" hidden>
+      <div class="tool-title">編集ツール</div>
+      <div class="tool-row">
+        <button class="wide" data-cmd="fs-up">A+</button>
+        <button class="wide" data-cmd="fs-down">A-</button>
+      </div>
+      <div class="tool-row">
+        <button data-align="left">左寄せ</button>
+        <button data-align="center">中央</button>
+        <button data-align="right">右寄せ</button>
+      </div>
+      <div class="tool-row">
+        <button class="color" data-color="#ffffff" style="background:#ffffff"></button>
+        <button class="color" data-color="#ffd966" style="background:#ffd966"></button>
+        <button class="color" data-color="#7ee0ff" style="background:#7ee0ff"></button>
+        <button class="color" data-color="#ff77aa" style="background:#ff77aa"></button>
+      </div>
+    </div>
     <div class="sched-clock" id="schedClock" aria-label="時刻"></div>
 
     <div class="sched-center">
       <input id="schedTitle" class="sched-title" placeholder="タイトルを入力">
-      <textarea id="schedBody" class="sched-body" placeholder="ここに予定を入力…"></textarea>
+      <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="ここに予定を入力…"></div>>
     </div>
   </div>
 </section>
@@ -502,7 +566,7 @@
 const hiddenTimePicker = document.getElementById('hiddenTimePicker');
 
   const goStart = $('#goStart'), goMulti = $('#goMulti'), goSchedule = $('#goSchedule');
-  const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings');
+  const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings'), navToSchedule = $('#navToSchedule');
   const navBackMenu1 = $('#navBackMenu1'), navToRun2 = $('#navToRun2');
 
   // 予定表用DOM（v2）
@@ -511,7 +575,8 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   const schedBody  = document.getElementById('schedBody');
   const schedToMenu= document.getElementById('schedToMenu');
   const schedToRun = document.getElementById('schedToRun');
-
+  const schedTools = document.getElementById('schedTools');
+  const scheduleScreen = document.getElementById('schedule');
   const timeText = $('#timeText'), barPath = $('#barPath'), runTitle = $('#runTitle');
 
   // テキスト時計の参照
@@ -562,6 +627,8 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   navToSettings.addEventListener('click', ()=> show(settings));
   navBackMenu1.addEventListener('click', ()=> show(menu));
   navToMenu.addEventListener('click', ()=> show(menu));
+if (navToSchedule) navToSchedule.addEventListener('click', ()=>{ show(schedule); updateSchedClock(); });
+  if (navToSchedule) navToSchedule.addEventListener('click', ()=>{ show(schedule); updateSchedClock(); });
 
   navToRun2.addEventListener('click', ()=>{
     applySettingsToRun();
@@ -1632,7 +1699,138 @@ if (schedTitle){
 // 初回起動時に予定表の時刻とタイトルサイズを反映
 updateSchedClock();
 fitTitleFont();
+/* ===== 掲示板 編集ツール ===== */
 
+/* ツールの表示/非表示：掲示板本文にフォーカス中だけ表示 */
+if (schedBody && schedTools){
+  schedBody.addEventListener('focus', ()=>{ schedTools.hidden = false; }, true);
+  schedBody.addEventListener('blur',  (e)=>{
+    // 本文から明確に離れたら隠す（ツール自体を触るときは保持）
+    setTimeout(()=>{
+      const ae = document.activeElement;
+      const touchingTools = schedTools.contains(ae);
+      const inBody = schedBody.contains(ae);
+      if (!touchingTools && !inBody) schedTools.hidden = true;
+    },0);
+  }, true);
+
+  // 画面切替で隠す
+  const hideTools = ()=>{ schedTools.hidden = true; };
+  if (schedToMenu) schedToMenu.addEventListener('click', hideTools);
+  if (schedToRun)  schedToRun .addEventListener('click', hideTools);
+}
+
+/* 選択範囲の Range を安全に取得（schedBody 内に限定） */
+function getBodyRange(){
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const r = sel.getRangeAt(0);
+  if (!schedBody.contains(r.startContainer) || !schedBody.contains(r.endContainer)) return null;
+  return r;
+}
+
+/* 選択ブロック（行）を取得：schedBody 直下の block を基準に */
+function getBlockElem(){
+  const r = getBodyRange();
+  const node = r ? r.startContainer : schedBody.firstChild;
+  if (!node) return null;
+  let el = (node.nodeType === Node.ELEMENT_NODE) ? node : node.parentElement;
+  while (el && el !== schedBody){
+    if (el.parentElement === schedBody) return el; // 直下の子（行）
+    el = el.parentElement;
+  }
+  // 行要素が無ければ生成（div）してテキストを移す
+  if (schedBody.firstChild && schedBody.firstChild.nodeType === Node.TEXT_NODE){
+    const wrap = document.createElement('div');
+    wrap.textContent = schedBody.firstChild.nodeValue;
+    schedBody.replaceChild(wrap, schedBody.firstChild);
+    return wrap;
+  }
+  return null;
+}
+
+/* 選択範囲を <span> で包んで style を適用（フォントサイズ/色） */
+function wrapSelectionWithSpan(styleSetter){
+  const r = getBodyRange();
+  if (!r) return;
+
+  // 何も選択してない場合は、ブロック全体に適用
+  if (r.collapsed){
+    const block = getBlockElem();
+    if (block){
+      styleSetter(block.style);
+    }
+    return;
+  }
+
+  const span = document.createElement('span');
+  // 一旦 wrap
+  span.appendChild(r.extractContents());
+  // スタイル適用
+  styleSetter(span.style);
+  r.insertNode(span);
+  // 選択を span の末尾へ
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  const nr = document.createRange();
+  nr.selectNodeContents(span);
+  nr.collapse(false);
+  sel.addRange(nr);
+}
+
+/* 文字サイズを相対で増減（選択 or 行） */
+function changeFontSize(delta){
+  const apply = (style)=>{
+    const current = parseFloat(window.getComputedStyle(style instanceof CSSStyleDeclaration ? style.ownerElement : schedBody).fontSize || '24');
+    const target = Math.max(12, Math.min(200, current + delta));
+    // 直接 style に指定
+    style.fontSize = target + 'px';
+  };
+  // 選択があれば span、なければ行
+  const r = getBodyRange();
+  if (r && !r.collapsed){
+    wrapSelectionWithSpan(s=>apply(s));
+  }else{
+    const block = getBlockElem();
+    if (block) apply(block.style);
+  }
+}
+
+/* 文字色変更（選択 or 行） */
+function setColor(color){
+  wrapSelectionWithSpan(s=>{ s.color = color; });
+}
+
+/* 行の左右中央寄せ（選択がなくてもOK） */
+function alignBlock(dir){
+  const block = getBlockElem();
+  if (block){
+    block.style.textAlign = dir; // 'left'|'center'|'right'
+  }else{
+    // 初回は本文全体に
+    schedBody.style.textAlign = dir;
+  }
+}
+
+/* ボタン配線 */
+if (schedTools){
+  // フォントサイズ
+  schedTools.querySelector('[data-cmd="fs-up"]')?.addEventListener('click', ()=> changeFontSize(+4));
+  schedTools.querySelector('[data-cmd="fs-down"]')?.addEventListener('click', ()=> changeFontSize(-4));
+
+  // 寄せ
+  ['left','center','right'].forEach(dir=>{
+    schedTools.querySelector(`[data-align="${dir}"]`)?.addEventListener('click', ()=> alignBlock(dir));
+  });
+
+  // 色
+  schedTools.querySelectorAll('.color').forEach(btn=>{
+    btn.addEventListener('click', ()=> setColor(btn.dataset.color));
+  });
+}
+
+/* Enterで行(div)を保つ（ブラウザ既定で div になるが念のため） */
+document.execCommand?.('DefaultParagraphSeparator', false, 'div');
 // 初回起動画面はメニュー
 show(menu);
 })();
