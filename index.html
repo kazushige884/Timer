@@ -1185,8 +1185,20 @@ timeEl.addEventListener('click', (e)=>{
   }
 }
 
-  // iOS/Safariの自動再生ロック解除：WebAudio + HTMLAudio（mp3）を単一プローブで解除
+  // iOS/Safariの自動再生ロック解除：WebAudio優先＋HTMLAudioは保険（復帰時に再試行）
 let soundsUnlocked = false;
+let __alarmBuf = null; // alarm.mp3 を WebAudio で鳴らすためのデコード済みバッファ
+const __pendingHTMLAudios = new Set(); // play()拒否時の保留キュー
+
+async function __loadAlarmBuffer(){
+  try{
+    const ctx = ensureAudio();
+    const res = await fetch('sounds/alarm.mp3');
+    const arr = await res.arrayBuffer();
+    __alarmBuf = await ctx.decodeAudioData(arr);
+  }catch(_){}
+}
+
 async function unlockAndPreloadSounds(){
   if (soundsUnlocked) return;
   preloadSounds();
@@ -1202,10 +1214,14 @@ async function unlockAndPreloadSounds(){
     osc.stop(ctx.currentTime + 0.01);
   }catch(_){}
 
-  // 2) HTMLAudio は alarm.mp3 をミュートで一瞬だけ再生→停止→巻き戻し（他は鳴らさない）
+  // 2) alarm.mp3 を WebAudio バッファに事前デコード（HTMLAudioに依存しない）
+  try{ await __loadAlarmBuffer(); }catch(_){}
+
+  // 3) HTMLAudio 側もプローブ（保険）
   try{
     const probe = audioCache['sounds/alarm.mp3'] || new Audio('sounds/alarm.mp3');
     audioCache['sounds/alarm.mp3'] = probe;
+    probe.playsInline = true;
     probe.muted = true;
     await probe.play();
     probe.pause();
@@ -1213,23 +1229,56 @@ async function unlockAndPreloadSounds(){
     probe.muted = false;
   }catch(_){}
 
+  // 4) 復帰時/操作時の再解錠＆保留再生フラッシュ
+  function __resumeAndFlush(){
+    try{ ensureAudio().resume(); }catch(_){}
+    __flushPendingHTMLAudios();
+  }
+  ['pointerdown','touchend','keydown','click','visibilitychange'].forEach(ev=>{
+    document.addEventListener(ev, ()=>{
+      if (ev !== 'visibilitychange' || document.visibilityState === 'visible'){
+        __resumeAndFlush();
+      }
+    }, {passive:true});
+  });
+
   soundsUnlocked = true;
 }
 
+function __flushPendingHTMLAudios(){
+  if (!__pendingHTMLAudios.size) return;
+  const copy = Array.from(__pendingHTMLAudios);
+  __pendingHTMLAudios.clear();
+  copy.forEach(a=>{
+    try{
+      a.play().catch(()=>{ __pendingHTMLAudios.add(a); });
+    }catch(_){
+      __pendingHTMLAudios.add(a);
+    }
+  });
+}
+
   function speakPoint(p){
-    const gender = state.voice === 'male' ? 'male' : 'female';
-    const key = String(p);
-    const src = soundFiles[gender][key];
-    if (!src) return;
+  const gender = state.voice === 'male' ? 'male' : 'female';
+  const key = String(p);
+  const src = soundFiles[gender][key];
+  if (!src) return;
 
-    const a = audioCache[src] || new Audio(src);
-    audioCache[src] = a; // 念のためキャッシュ
-    try{ a.pause(); }catch(_){}
-    a.currentTime = 0;
-    a.play().catch(e => console.warn('音声再生エラー:', e));
+  const a = audioCache[src] || new Audio(src);
+  audioCache[src] = a;
+  a.preload = 'auto';
+  a.playsInline = true;
 
-    if (p === 0) { flashEnd(); }
+  try{ a.pause(); }catch(_){}
+  a.currentTime = 0;
+  try{
+    a.play().catch(()=>{ __pendingHTMLAudios.add(a); });
+  }catch(_){
+    __pendingHTMLAudios.add(a);
   }
+
+  if (p === 0) { flashEnd(); }
+}
 
   // 終了時に赤↔黒で点滅
   function flashEnd(){
@@ -1392,8 +1441,28 @@ function playAlarm(name='watch'){
   // ===== 複数タイマーしきい値監視 =====
   // ===== 複数タイマーしきい値監視（重複アラーム防止＆操作可） =====
 function playAlarmFileOnce(){
-  const a = new Audio("sounds/alarm.mp3");
-  a.play().catch(()=>{});
+  const ctx = ensureAudio();
+  // 1) WebAudio バッファがあれば確実に鳴らす（ミュートスイッチの影響も受けにくい）
+  if (__alarmBuf){
+    try{
+      const src = ctx.createBufferSource();
+      src.buffer = __alarmBuf;
+      src.connect(__masterGain || ctx.destination);
+      src.start();
+      return;
+    }catch(_){}
+  }
+  // 2) 保険：HTMLAudio（失敗時は保留→次のユーザ操作/復帰で再試行）
+  const a = audioCache['sounds/alarm.mp3'] || new Audio('sounds/alarm.mp3');
+  audioCache['sounds/alarm.mp3'] = a;
+  a.preload = 'auto';
+  a.playsInline = true;
+  try{
+    a.currentTime = 0;
+    a.play().catch(()=>{ __pendingHTMLAudios.add(a); });
+  }catch(_){
+    __pendingHTMLAudios.add(a);
+  }
 }
 
 setInterval(()=>{
