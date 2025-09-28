@@ -287,10 +287,10 @@
   background:var(--bg);
 }
 .sched-clock{
-  position:fixed; top:8px; right:148px; /* 右上ボタンの左側に配置 */
+  position:fixed; top:8px; left:12px; /* 左上に配置（ボタンと干渉しない距離） */
   color:#fff; font-weight:900;
-  /* フォントサイズ：従来比ほぼ2倍 */
-  font-size: clamp(24px, 4.8vh, 52px);
+  /* フォントサイズ：2倍に変更 */
+  font-size: clamp(48px, 9.6vh, 104px);
   letter-spacing:.02em; z-index:3;
 }
 .sched-center{
@@ -303,18 +303,18 @@
 }
 .sched-title{
   width:min(80vw, 1000px);
-  height: min(16vh, 160px);
+  height: min(13vh, 132px); /* 縦をやや狭く */
   background:#111; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
-  padding:.4em .6em; font-weight:800; text-align:center;
-  /* 枠に合わせて大きく：まずは大きめ基準を与える（JSで微調整） */
-  font-size: clamp(24px, 6.5vh, 72px);
-  line-height:1.15;
+  padding:.35em .6em; font-weight:800; text-align:center;
+  /* フォントサイズを1.2倍（JSで微調整も継続） */
+  font-size: clamp(28.8px, 7.8vh, 86.4px);
+  line-height:1.12;
 }
 .sched-body{
   width:min(80vw, 1000px);
-  height: calc(100dvh - 72px - min(16vh, 160px) - min(2.5vh, 18px) - min(4vw,24px));
+  height: calc(100dvh - 72px - min(13vh, 132px) - min(2.5vh, 18px) - min(4vw,24px));
   background:#0f0f0f; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
-  padding: .9em 1.0em; font-size: clamp(16px, 2.2vh, 22px); line-height:1.6;
+  padding: .9em 1.0em; font-size: clamp(24px, 6.5vh, 72px); line-height:1.6; /* タイトル旧サイズと同じ */
   resize: none; overflow:auto; outline:none;
 }
 
