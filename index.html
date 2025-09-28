@@ -280,25 +280,46 @@
 /* 予定表ボタン（クリーム） */
 .btn.schedule{ background:#fff3b0; border-color:#fff3b0; color:#000; }
 
-/* 予定表画面 */
+/* --- 予定表（Schedule）v2 --- */
 #schedule{ background:#000; }
-.schedule-clock{
-  position:fixed; top:12px; right:12px;
-  color:#fff; font-weight:800; font-size:clamp(18px,3vh,28px);
+.sched-wrap{
+  position:relative; inset:0; width:100%; height:100%;
+  background:var(--bg);
 }
-.schedule-wrap{
+.sched-clock{
+  position:fixed; top:8px; right:148px; /* 右上ボタンの左側に配置 */
+  color:#fff; font-weight:900;
+  /* フォントサイズ：従来比ほぼ2倍 */
+  font-size: clamp(24px, 4.8vh, 52px);
+  letter-spacing:.02em; z-index:3;
+}
+.sched-center{
   position:absolute; inset:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:12px; padding:min(4vw,24px);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:flex-start;
+  padding: min(4vw,24px);
+  padding-top: 72px;  /* topnav の高さぶん */
+  gap: min(2.5vh, 18px);
 }
-.schedule-input{
-  background:#111; color:#fff; border:2px solid #444; border-radius:16px;
-  padding:12px; resize:none; outline:none;
-  box-shadow:0 6px 20px rgba(0,0,0,.35);
+.sched-title{
+  width:min(80vw, 1000px);
+  height: min(16vh, 160px);
+  background:#111; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
+  padding:.4em .6em; font-weight:800; text-align:center;
+  /* 枠に合わせて大きく：まずは大きめ基準を与える（JSで微調整） */
+  font-size: clamp(24px, 6.5vh, 72px);
+  line-height:1.15;
 }
-.schedule-actions{
-  position:fixed; right:20px; bottom:20px;
+.sched-body{
+  width:min(80vw, 1000px);
+  height: calc(100dvh - 72px - min(16vh, 160px) - min(2.5vh, 18px) - min(4vw,24px));
+  background:#0f0f0f; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
+  padding: .9em 1.0em; font-size: clamp(16px, 2.2vh, 22px); line-height:1.6;
+  resize: none; overflow:auto; outline:none;
 }
+
+/* 予定表画面の右上ボタン */
+#schedToMenu, #schedToRun{ font-weight:800; }
 </style>
 </head>
 <body>
@@ -371,10 +392,21 @@
 
 <!-- 予定表画面 -->
 <section id="schedule" class="screen" aria-live="polite">
-  <div class="schedule-clock">現在の時刻：<span id="scheduleClock">--:--</span></div>
-  <div id="scheduleWrap" class="schedule-wrap"></div>
-  <div class="schedule-actions">
-    <button id="scheduleAddBtn" class="add-fab">＋</button>
+  <div class="sched-wrap">
+    <div class="topnav">
+      <div class="small"></div>
+      <div>
+        <button class="navbtn" id="schedToMenu">メニュー</button>
+        <button class="navbtn" id="schedToRun">実行</button>
+      </div>
+    </div>
+
+    <div class="sched-clock" id="schedClock" aria-label="時刻"></div>
+
+    <div class="sched-center">
+      <input id="schedTitle" class="sched-title" placeholder="タイトルを入力">
+      <textarea id="schedBody" class="sched-body" placeholder="ここに予定を入力…"></textarea>
+    </div>
   </div>
 </section>
 
@@ -473,10 +505,12 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   const navToMenu = $('#navToMenu'), navToSettings = $('#navToSettings');
   const navBackMenu1 = $('#navBackMenu1'), navToRun2 = $('#navToRun2');
 
-  // 予定表用DOM
-  const scheduleClock = document.getElementById('scheduleClock');
-  const scheduleWrap  = document.getElementById('scheduleWrap');
-  const scheduleAddBtn= document.getElementById('scheduleAddBtn');
+  // 予定表用DOM（v2）
+  const schedClock = document.getElementById('schedClock');
+  const schedTitle = document.getElementById('schedTitle');
+  const schedBody  = document.getElementById('schedBody');
+  const schedToMenu= document.getElementById('schedToMenu');
+  const schedToRun = document.getElementById('schedToRun');
 
   const timeText = $('#timeText'), barPath = $('#barPath'), runTitle = $('#runTitle');
 
@@ -523,9 +557,7 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
   });
   goSchedule.addEventListener('click', ()=>{
     show(schedule);
-    if (!scheduleInputs.length) addScheduleInput(); // 最初の入力欄を用意
-    startScheduleClock(); // 時刻表示を開始
-    layoutScheduleInputs(); // レイアウト適用
+    updateSchedClock(); // 時刻を即時表示
   });
   navToSettings.addEventListener('click', ()=> show(settings));
   navBackMenu1.addEventListener('click', ()=> show(menu));
@@ -535,7 +567,12 @@ const hiddenTimePicker = document.getElementById('hiddenTimePicker');
     applySettingsToRun();
     show(run);
   });
-
+// 予定表の右上ボタン
+if (schedToMenu) schedToMenu.addEventListener('click', ()=> show(menu));
+if (schedToRun)  schedToRun .addEventListener('click', ()=>{
+  applySettingsToRun();
+  show(run);
+});
   // ------- 設定の保存 -------
   function getTotalSeconds(){
     const h = Math.max(0, parseInt(hI.value||'0',10));
@@ -1547,80 +1584,57 @@ setInterval(()=>{
   });
 }, 500);
 
-  // ===== 予定表ロジック =====
-let scheduleInputs = [];
-let clockTimer = null;
-
-function updateClock(){
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  if (scheduleClock) scheduleClock.textContent = `${hh}:${mm}`;
+  // ===== 予定表ロジック v2 =====
+// 右上の時刻（HH:MM のみ表示）を更新
+function updateSchedClock(){
+  try{
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    if (schedClock) schedClock.textContent = `${hh}:${mm}`;
+  }catch(_){}
 }
-function startScheduleClock(){
-  if (clockTimer) return;
-  updateClock();
-  clockTimer = setInterval(updateClock, 1000);
-}
-function stopScheduleClock(){
-  if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
-}
+// 定期更新（毎10秒で十分）
+setInterval(updateSchedClock, 10000);
 
-// 入力欄追加
-function addScheduleInput(value=''){
-  if (!scheduleWrap) return;
-  const ta = document.createElement('textarea');
-  ta.className = 'schedule-input';
-  ta.value = value;
-  scheduleWrap.appendChild(ta);
-  scheduleInputs.push(ta);
-  layoutScheduleInputs();
-  ta.focus();
-}
+// タイトル入力の文字サイズを枠にフィットさせる（大きく・読みやすく）
+function fitTitleFont(){
+  if (!schedTitle) return;
+  // まずは大きめ基準
+  schedTitle.style.fontSize = '';
+  const base = Math.min(window.innerHeight * 0.065, 72); // CSSの上限と合わせる
+  let fs = base;
+  schedTitle.style.fontSize = fs + 'px';
 
-// すべて1画面に収めるレイアウト
-function layoutScheduleInputs(){
-  if (!scheduleInputs.length) return;
-  const vh = window.innerHeight;
-  const vw = window.innerWidth;
+  // １行入力を前提に、高さオーバーと横スクロールを避けるよう軽く縮める
+  const maxW = schedTitle.clientWidth - 16;  // パディング考慮
+  const maxH = schedTitle.clientHeight - 8;
+  const ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = `${fs}px ${getComputedStyle(schedTitle).fontFamily}`;
 
-  // 1つ目は固定（幅=画面の半分, 高さ=画面の1/5）
-  const firstH = Math.max(80, vh * 0.20);
-  const firstW = Math.min(vw * 0.50, 900);
+  const text = schedTitle.value || schedTitle.placeholder || '';
+  let textW = ctx.measureText(text).width;
 
-  // 残りスペースを他の入力欄で均等配分。必要に応じ小さくして詰める。
-  const others = Math.max(0, scheduleInputs.length - 1);
-  const topBottomPad = Math.min(vh*0.08, 72); // 余白(上下合計)
-  const remainH = Math.max(0, vh - firstH - topBottomPad - 100); // 下部ボタン等の余白
-
-  const perH = others ? Math.max(40, Math.min(firstH * 0.65, remainH / others)) : 0;
-
-  scheduleInputs.forEach((el, i)=>{
-    const isFirst = (i === 0);
-    const h = isFirst ? firstH : perH;
-
-    // 2つ目以降は段階的に幅を縮小（最小30vw）
-    let w;
-    if (isFirst){
-      w = firstW;
-    }else{
-      const shrink = Math.min(0.30, i * 0.06); // 2個目以降 6%ずつ縮小、最大30%
-      w = Math.max(vw * (0.50 - shrink), vw * 0.30);
-    }
-
-    el.style.height = `${h}px`;
-    el.style.width  = `${w}px`;
-    el.style.fontSize = isFirst ? 'clamp(16px, 2.2vh, 20px)' : 'clamp(12px, 1.8vh, 16px)';
-  });
+  // 高さ or 幅が溢れる場合は少しずつ縮める
+  while ((textW > maxW || schedTitle.scrollHeight > schedTitle.clientHeight) && fs > 16){
+    fs -= 1;
+    schedTitle.style.fontSize = fs + 'px';
+    ctx.font = `${fs}px ${getComputedStyle(schedTitle).fontFamily}`;
+    textW = ctx.measureText(text).width;
+  }
 }
 
-if (scheduleAddBtn){
-  scheduleAddBtn.addEventListener('click', ()=> addScheduleInput());
+if (schedTitle){
+  schedTitle.addEventListener('input', fitTitleFont);
+  window.addEventListener('resize', fitTitleFont);
 }
-window.addEventListener('resize', layoutScheduleInputs);
+
+// 初回起動時に予定表の時刻とタイトルサイズを反映
+updateSchedClock();
+fitTitleFont();
 
 // 初回起動画面はメニュー
-  show(menu);
+show(menu);
 })();
 </script>
 </body>
