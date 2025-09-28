@@ -166,10 +166,7 @@
   .msg{color:#ffd966; font-size:clamp(14px,2.2vh,18px)}
 
   /* ヘッダーナビ（軽量） */
-  .topnav{
-    position:fixed; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between;
-    padding:0 12px; background:linear-gradient(#000, #060606); border-bottom:1px solid #111;
-  }
+  .topnav{ position:fixed; top:0; left:0; right:0; height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:linear-gradient(#000, #060606); border-bottom:1px solid #111; z-index: 9999; }
   .topnav .small{font-weight:700; opacity:.8}
   .topnav .navbtn{
     background:#333; color:#ccc; border:1px solid #333; border-radius:10px; padding:.3em .7em; font-weight:700;
