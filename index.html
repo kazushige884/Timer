@@ -289,7 +289,7 @@
 .sched-clock{
   position:fixed;
 /* 旧) top:60px; を2行構成に置換（非対応ブラウザは60pxが効く） */
-  top: 60px;
+  top: 56px;
   top: calc(48px + env(safe-area-inset-top) + 12px);
   left:12px;
   color:#fff; font-weight:900;
@@ -310,7 +310,7 @@
   background:#111; color:#fff; border:3px solid #2a2a2a; border-radius:16px;
   padding:.4em .6em; font-weight:800; text-align:center;
   /* 枠に合わせて大きく：まずは大きめ基準を与える（JSで微調整） */
-  font-size: clamp(28.8px, 7.8vh, 86.4px); /* ★ 1.2倍に拡大 */
+   font-size: clamp(36px, 8.8vh, 96px); /* タイトルを少し大きく */
   line-height:1.15;
 }
 .sched-body{
