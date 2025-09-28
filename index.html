@@ -739,24 +739,25 @@ function updateRunTrackVisuals(forceFinish=false){
     updateBar();
 
     if (state.remainSec <= 0){
-  state.running = false;
-  cancelAnim();
-  // 終了時アナウンスが未発火なら保険
-  if (state.annPoints.has(0)) speakPoint(0);
-// 終了アラーム（alarm.mp3を1回）
-playAlarmFileOnce();
- 
-  // トラックを赤で点滅
-  updateRunTrackVisuals(true);
-  // 背景も赤↔黒で点滅
-  flashEnd();
-  if (btnToggle) btnToggle.textContent = '▶︎';
-  runMsg.textContent = 'タイマーが終了しました。';
-  return;
-}
+      state.running = false;
+      cancelAnim();
+      // 終了時アナウンスが未発火なら保険
+      if (state.annPoints.has(0)) speakPoint(0);
+      // 終了アラーム（alarm.mp3を1回）。失敗時は復帰フックで再試行
+      playAlarmFileOnce();
+      pendingEndBeep = true;
+
+      // トラックを赤で点滅
+      updateRunTrackVisuals(true);
+      // 背景も赤↔黒で点滅
+      flashEnd();
+      if (btnToggle) btnToggle.textContent = '▶︎';
+      runMsg.textContent = 'タイマーが終了しました。';
+      return;
+    }
     state.rafId = requestAnimationFrame(tick);
   }
-  function start(){
+  async function start(){
     if (!state.saved || state.durationSec<=0){
       alert('タイマーを設定してください');
       return;
@@ -768,10 +769,13 @@ playAlarmFileOnce();
     if (btnToggle) btnToggle.textContent = '||';
     runMsg.textContent = 'カウントダウン中…';
     cancelAnim();
-    unlockAndPreloadSounds();
+
+    // 解除完了を待つ（ユーザー操作コンテキスト内）
+    await unlockAndPreloadSounds();
+
     if (state.annPoints.has(-1) && state.remainSec === state.durationSec) {
-  speakPoint(-1); // 開始時アナウンス（初回スタート時のみ）
-}
+      speakPoint(-1); // 開始時アナウンス（初回スタート時のみ）
+    }
     state.rafId = requestAnimationFrame(tick);
   }
   function pause(){
@@ -1189,6 +1193,7 @@ timeEl.addEventListener('click', (e)=>{
 let soundsUnlocked = false;
 let __alarmBuf = null; // alarm.mp3 を WebAudio で鳴らすためのデコード済みバッファ
 const __pendingHTMLAudios = new Set(); // play()拒否時の保留キュー
+let pendingEndBeep = false;            // 終了音の再試行フラグ
 
 async function __loadAlarmBuffer(){
   try{
@@ -1233,6 +1238,10 @@ async function unlockAndPreloadSounds(){
   function __resumeAndFlush(){
     try{ ensureAudio().resume(); }catch(_){}
     __flushPendingHTMLAudios();
+    if (pendingEndBeep){
+      playAlarmFileOnce();
+      pendingEndBeep = false;
+    }
   }
   ['pointerdown','touchend','keydown','click','visibilitychange'].forEach(ev=>{
     document.addEventListener(ev, ()=>{
