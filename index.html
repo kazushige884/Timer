@@ -1783,74 +1783,67 @@ function wrapSelectionWithSpan(styleSetter){
   // 何も選択してない場合は、ブロック全体に適用
   if (r.collapsed){
     const block = getBlockElem();
-    if (block){
-      styleSetter(block.style);
-    }
+    if (block){ styleSetter(block.style); }
     return;
   }
 
+  // 選択範囲だけを安全に <span> で包む
   const span = document.createElement('span');
-  // 一旦 wrap
-  span.appendChild(r.extractContents());
-  // スタイル適用
-  styleSetter(span.style);
-  r.insertNode(span);
-  // 選択を span の末尾へ
+  span.style.display = 'inline';
+  const frag = r.cloneContents();   // ★ まずクローン
+  r.deleteContents();               // ★ 元の選択を削除
+  span.appendChild(frag);           // ★ 選択内容を span に入れる
+  r.insertNode(span);               // ★ span をその場に挿入
+
+  // スタイル適用は“この span のみ”
+  styleSetter(span.style, span);
+
+  // 再選択（消えたように見えないように）
   const sel = window.getSelection();
   sel.removeAllRanges();
   const nr = document.createRange();
   nr.selectNodeContents(span);
-  nr.collapse(false);
   sel.addRange(nr);
 }
 
 /* 文字サイズを相対で増減（選択 or 行） */
 function changeFontSize(delta){
-  const sel = window.getSelection && window.getSelection();
-  const r = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+  const r = getBodyRange();
 
-  // 掲示板本文内の操作
-  if (r && schedBody.contains(r.commonAncestorContainer)) {
-    // 選択なし → 行（schedBody直下ブロック）に適用
-    if (r.collapsed){
-      const block = getBlockElem();
-      if (!block) return;
-      const cur = parseFloat(getComputedStyle(block).fontSize) || 24;
-      const target = Math.max(12, Math.min(200, cur + delta));
-      block.style.fontSize = target + 'px';
-      return;
-    }
+  // ── 掲示板本文内の選択がある：選択範囲だけを拡大/縮小
+  if (r && !r.collapsed){
+    let baseEl = (r.startContainer.nodeType === Node.ELEMENT_NODE)
+      ? r.startContainer
+      : r.startContainer.parentElement;
+    if (!baseEl || !schedBody.contains(baseEl)) baseEl = schedBody;
 
-    // 選択あり → 選択範囲を <span> で包み、基準フォントから ±delta
-    const baseEl = (r.startContainer.nodeType === Node.TEXT_NODE)
-      ? r.startContainer.parentElement
-      : r.startContainer;
-    const cur = parseFloat(getComputedStyle(baseEl || schedBody).fontSize) || 24;
-    const target = Math.max(12, Math.min(200, cur + delta));
+    const cur = parseFloat(getComputedStyle(baseEl).fontSize) || 24;
+    const next = Math.max(12, Math.min(200, cur + delta));
 
-    const span = document.createElement('span');
-    span.style.fontSize = target + 'px';
-    span.style.lineHeight = 'inherit';
-
-    // 選択内容を抜き出して span に格納 → その場に戻す
-    const frag = r.extractContents();
-    span.appendChild(frag);
-    r.insertNode(span);
-
-    // キャレットを末尾に移動
-    sel.removeAllRanges();
-    const nr = document.createRange();
-    nr.selectNodeContents(span);
-    nr.collapse(false);
-    sel.addRange(nr);
+    // ★ wrapSelectionWithSpan は選択部分だけを <span> で包んで style を当てる
+    wrapSelectionWithSpan((style)=>{
+      style.fontSize = next + 'px';
+      style.lineHeight = 'inherit';
+    });
     return;
   }
 
-  // タイトル入力欄がフォーカスされている場合は、枠全体のフォントサイズを変更
+  // ── 掲示板本文で選択なし：現在の行（schedBody直下ブロック）に適用
+  if (r && r.collapsed){
+    const block = getBlockElem();
+    if (block){
+      const cur = parseFloat(getComputedStyle(block).fontSize) || 24;
+      const next = Math.max(12, Math.min(200, cur + delta));
+      block.style.fontSize = next + 'px';
+    }
+    return;
+  }
+
+  // ── タイトル欄がアクティブな場合：タイトル枠のフォントサイズを変更（fitTitleFontで再調整）
   if (document.activeElement === schedTitle){
     const cur = parseFloat(getComputedStyle(schedTitle).fontSize) || 24;
-    const target = Math.max(12, Math.min(200, cur + delta));
-    schedTitle.style.fontSize = target + 'px';
+    const next = Math.max(12, Math.min(200, cur + delta));
+    schedTitle.style.fontSize = next + 'px';
     try{ fitTitleFont(); }catch(_){}
   }
 }
