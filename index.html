@@ -1857,16 +1857,27 @@ function changeFontSize(delta){
 
 /* 文字色変更（選択 or 行） */
 function setColor(color){
+  // タイトル枠がアクティブならタイトルに適用
+  if (document.activeElement === schedTitle){
+    schedTitle.style.color = color;
+    return;
+  }
+  // 本文は選択範囲（なければ行）に適用
   wrapSelectionWithSpan(s=>{ s.color = color; });
 }
 
 /* 行の左右中央寄せ（選択がなくてもOK） */
 function alignBlock(dir){
+  // タイトル枠がアクティブならタイトルに適用
+  if (document.activeElement === schedTitle){
+    schedTitle.style.textAlign = dir; // 'left'|'center'|'right'
+    return;
+  }
+  // 本文は選択行（なければ本文全体）に適用
   const block = getBlockElem();
   if (block){
-    block.style.textAlign = dir; // 'left'|'center'|'right'
+    block.style.textAlign = dir;
   }else{
-    // 初回は本文全体に
     schedBody.style.textAlign = dir;
   }
 }
