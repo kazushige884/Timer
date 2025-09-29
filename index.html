@@ -1806,19 +1806,52 @@ function wrapSelectionWithSpan(styleSetter){
 
 /* 文字サイズを相対で増減（選択 or 行） */
 function changeFontSize(delta){
-  const apply = (style)=>{
-    const current = parseFloat(window.getComputedStyle(style instanceof CSSStyleDeclaration ? style.ownerElement : schedBody).fontSize || '24');
-    const target = Math.max(12, Math.min(200, current + delta));
-    // 直接 style に指定
-    style.fontSize = target + 'px';
-  };
-  // 選択があれば span、なければ行
-  const r = getBodyRange();
-  if (r && !r.collapsed){
-    wrapSelectionWithSpan(s=>apply(s));
-  }else{
-    const block = getBlockElem();
-    if (block) apply(block.style);
+  const sel = window.getSelection && window.getSelection();
+  const r = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+
+  // 掲示板本文内の操作
+  if (r && schedBody.contains(r.commonAncestorContainer)) {
+    // 選択なし → 行（schedBody直下ブロック）に適用
+    if (r.collapsed){
+      const block = getBlockElem();
+      if (!block) return;
+      const cur = parseFloat(getComputedStyle(block).fontSize) || 24;
+      const target = Math.max(12, Math.min(200, cur + delta));
+      block.style.fontSize = target + 'px';
+      return;
+    }
+
+    // 選択あり → 選択範囲を <span> で包み、基準フォントから ±delta
+    const baseEl = (r.startContainer.nodeType === Node.TEXT_NODE)
+      ? r.startContainer.parentElement
+      : r.startContainer;
+    const cur = parseFloat(getComputedStyle(baseEl || schedBody).fontSize) || 24;
+    const target = Math.max(12, Math.min(200, cur + delta));
+
+    const span = document.createElement('span');
+    span.style.fontSize = target + 'px';
+    span.style.lineHeight = 'inherit';
+
+    // 選択内容を抜き出して span に格納 → その場に戻す
+    const frag = r.extractContents();
+    span.appendChild(frag);
+    r.insertNode(span);
+
+    // キャレットを末尾に移動
+    sel.removeAllRanges();
+    const nr = document.createRange();
+    nr.selectNodeContents(span);
+    nr.collapse(false);
+    sel.addRange(nr);
+    return;
+  }
+
+  // タイトル入力欄がフォーカスされている場合は、枠全体のフォントサイズを変更
+  if (document.activeElement === schedTitle){
+    const cur = parseFloat(getComputedStyle(schedTitle).fontSize) || 24;
+    const target = Math.max(12, Math.min(200, cur + delta));
+    schedTitle.style.fontSize = target + 'px';
+    try{ fitTitleFont(); }catch(_){}
   }
 }
 
