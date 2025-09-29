@@ -314,11 +314,11 @@
   font-size: clamp(36px, 8.5vh, 96px);
   line-height:1.15;
 }
-/* プレースホルダも実際の文字と同じサイズにする（各ブラウザ対応） */
-.sched-title::placeholder{ font-size: inherit; line-height: inherit; opacity:.5; }
-.sched-title::-webkit-input-placeholder{ font-size: inherit; line-height: inherit; opacity:.5; }
-.sched-title::-moz-placeholder{ font-size: inherit; line-height: inherit; opacity:.5; }
-.sched-title:-ms-input-placeholder{ font-size: inherit; line-height: inherit; opacity:.5; }
+/* contenteditable 用プレースホルダ表示 */
+.sched-title[contenteditable="true"]:empty:before{
+  content: attr(data-placeholder);
+  opacity:.5;
+}
 .sched-body{
   width:min(80vw, 1000px);
   height: calc(100dvh - 72px - min(13vh, 132px) - min(2.5vh, 18px) - min(4vw,24px));
@@ -488,7 +488,7 @@
     <div class="sched-clock" id="schedClock" aria-label="時刻"></div>
 
     <div class="sched-center">
-      <input id="schedTitle" class="sched-title" placeholder="タイトルを入力">
+      <div id="schedTitle" class="sched-title" contenteditable="true" data-placeholder="タイトルを入力"></div>
       <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="ここに予定を入力…"></div>
     </div>
   </div>
@@ -1753,59 +1753,57 @@ if (schedBody && schedTools && schedTitle){
   if (schedToRun)  schedToRun .addEventListener('click', hideTools);
 }
 
-/* 選択範囲の Range を安全に取得（schedBody 内に限定） */
-function getBodyRange(){
+/* ==== 選択ユーティリティ（本文/タイトル 共通） ==== */
+function getRangeIn(root){
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
   const r = sel.getRangeAt(0);
-  if (!schedBody.contains(r.startContainer) || !schedBody.contains(r.endContainer)) return null;
+  if (!(root.contains(r.startContainer) && root.contains(r.endContainer))) return null;
   return r;
 }
 
-/* 選択ブロック（行）を取得：schedBody 直下の block を基準に */
-function getBlockElem(){
-  const r = getBodyRange();
-  const node = r ? r.startContainer : schedBody.firstChild;
+function getBlockElemIn(root){
+  // タイトルは1ブロック扱い
+  if (root === schedTitle) return schedTitle;
+  const r = getRangeIn(root);
+  const node = r ? r.startContainer : root.firstChild;
   if (!node) return null;
   let el = (node.nodeType === Node.ELEMENT_NODE) ? node : node.parentElement;
-  while (el && el !== schedBody){
-    if (el.parentElement === schedBody) return el; // 直下の子（行）
+  while (el && el !== root){
+    if (el.parentElement === root) return el; // 直下の子（行）
     el = el.parentElement;
   }
-  // 行要素が無ければ生成（div）してテキストを移す
-  if (schedBody.firstChild && schedBody.firstChild.nodeType === Node.TEXT_NODE){
+  if (root.firstChild && root.firstChild.nodeType === Node.TEXT_NODE){
     const wrap = document.createElement('div');
-    wrap.textContent = schedBody.firstChild.nodeValue;
-    schedBody.replaceChild(wrap, schedBody.firstChild);
+    wrap.textContent = root.firstChild.nodeValue;
+    root.replaceChild(wrap, root.firstChild);
     return wrap;
   }
   return null;
 }
 
-/* 選択範囲を <span> で包んで style を適用（フォントサイズ/色） */
-function wrapSelectionWithSpan(styleSetter){
-  const r = getBodyRange();
-  if (!r) return;
-
-  // 何も選択してない場合は、ブロック全体に適用
-  if (r.collapsed){
-    const block = getBlockElem();
+function wrapSelectionWithSpanIn(root, styleSetter){
+  const r = getRangeIn(root);
+  if (!r){
+    // 選択なし → ブロック全体
+    const block = getBlockElemIn(root);
     if (block){ styleSetter(block.style); }
     return;
   }
-
-  // 選択範囲だけを安全に <span> で包む
+  if (r.collapsed){
+    const block = getBlockElemIn(root);
+    if (block){ styleSetter(block.style); }
+    return;
+  }
   const span = document.createElement('span');
   span.style.display = 'inline';
-  const frag = r.cloneContents();   // ★ まずクローン
-  r.deleteContents();               // ★ 元の選択を削除
-  span.appendChild(frag);           // ★ 選択内容を span に入れる
-  r.insertNode(span);               // ★ span をその場に挿入
+  const frag = r.cloneContents();
+  r.deleteContents();
+  span.appendChild(frag);
+  r.insertNode(span);
 
-  // スタイル適用は“この span のみ”
   styleSetter(span.style, span);
 
-  // 再選択（消えたように見えないように）
   const sel = window.getSelection();
   sel.removeAllRanges();
   const nr = document.createRange();
@@ -1813,88 +1811,84 @@ function wrapSelectionWithSpan(styleSetter){
   sel.addRange(nr);
 }
 
-/* 文字サイズを相対で増減（選択 or 行） */
+/* ==== 編集コマンド ==== */
 function changeFontSize(delta){
-  const r = getBodyRange();
+  const inBody  = getRangeIn(schedBody);
+  const inTitle = getRangeIn(schedTitle);
 
-  // ── 掲示板本文内の選択がある：選択範囲だけを拡大/縮小
-  if (r && !r.collapsed){
-    let baseEl = (r.startContainer.nodeType === Node.ELEMENT_NODE)
-      ? r.startContainer
-      : r.startContainer.parentElement;
+  if (inBody){
+    // 本文：選択あり→選択のみ、なし→行
+    let baseEl = (inBody.startContainer.nodeType === Node.ELEMENT_NODE)
+      ? inBody.startContainer
+      : inBody.startContainer.parentElement;
     if (!baseEl || !schedBody.contains(baseEl)) baseEl = schedBody;
-
     const cur = parseFloat(getComputedStyle(baseEl).fontSize) || 24;
     const next = Math.max(12, Math.min(200, cur + delta));
-
-    // ★ wrapSelectionWithSpan は選択部分だけを <span> で包んで style を当てる
-    wrapSelectionWithSpan((style)=>{
-      style.fontSize = next + 'px';
-      style.lineHeight = 'inherit';
-    });
+    wrapSelectionWithSpanIn(schedBody, (style)=>{ style.fontSize = next + 'px'; style.lineHeight='inherit'; });
     return;
   }
 
-  // ── 掲示板本文で選択なし：現在の行（schedBody直下ブロック）に適用
-  if (r && r.collapsed){
-    const block = getBlockElem();
+  if (inTitle){
+    // タイトル：選択あり→選択のみ、なし→全体（中央寄せ維持のため line-height は触らない）
+    let baseEl = (inTitle.startContainer.nodeType === Node.ELEMENT_NODE)
+      ? inTitle.startContainer
+      : inTitle.startContainer.parentElement;
+    if (!baseEl || !schedTitle.contains(baseEl)) baseEl = schedTitle;
+    const cur = parseFloat(getComputedStyle(baseEl).fontSize) || 36;
+    const next = Math.max(12, Math.min(200, cur + delta));
+    wrapSelectionWithSpanIn(schedTitle, (style)=>{ style.fontSize = next + 'px'; });
+    return;
+  }
+
+  // フォーカスのみ（選択なし）
+  if (document.activeElement === schedTitle){
+    const cur = parseFloat(getComputedStyle(schedTitle).fontSize) || 36;
+    const next = Math.max(12, Math.min(200, cur + delta));
+    schedTitle.style.fontSize = next + 'px';
+  }else if (document.activeElement === schedBody){
+    const block = getBlockElemIn(schedBody);
     if (block){
       const cur = parseFloat(getComputedStyle(block).fontSize) || 24;
       const next = Math.max(12, Math.min(200, cur + delta));
       block.style.fontSize = next + 'px';
     }
-    return;
-  }
-
-  // ── タイトル欄がアクティブな場合：タイトル枠のフォントサイズを変更（fitTitleFontで再調整）
-  if (document.activeElement === schedTitle){
-    const cur = parseFloat(getComputedStyle(schedTitle).fontSize) || 24;
-    const next = Math.max(12, Math.min(200, cur + delta));
-    schedTitle.style.fontSize = next + 'px';
-    try{ fitTitleFont(); }catch(_){}
   }
 }
 
-/* 文字色変更（選択 or 行） */
 function setColor(color){
-  // タイトルがアクティブならタイトルに適用
-  if (document.activeElement === schedTitle){
-    schedTitle.style.color = color;
-    return;
+  // アクティブな方を優先（選択があれば選択だけ）
+  if (getRangeIn(schedTitle)) { wrapSelectionWithSpanIn(schedTitle, s=>{ s.color = color; }); return; }
+  if (getRangeIn(schedBody )) { wrapSelectionWithSpanIn(schedBody , s=>{ s.color = color; }); return; }
+
+  // 選択が無い場合：フォーカス側全体
+  if (document.activeElement === schedTitle){ schedTitle.style.color = color; return; }
+  if (document.activeElement === schedBody ){
+    const block = getBlockElemIn(schedBody);
+    if (block){ block.style.color = color; }
   }
-  // 本文（選択／行）に適用
-  wrapSelectionWithSpan(s=>{ s.color = color; });
 }
 
-/* 行の左右中央寄せ（選択がなくてもOK） */
 function alignBlock(dir){
-  // タイトルがアクティブならタイトルに適用
-  if (document.activeElement === schedTitle){
-    schedTitle.style.textAlign = dir; // 'left'|'center'|'right'
+  if (getRangeIn(schedTitle) || document.activeElement === schedTitle){
+    schedTitle.style.textAlign = dir;
     return;
   }
-  // 本文に適用
-  const block = getBlockElem();
-  if (block){
-    block.style.textAlign = dir; // 'left'|'center'|'right'
-  }else{
-    // 初回は本文全体に
-    schedBody.style.textAlign = dir;
-  }
+  const block = getBlockElemIn(schedBody);
+  if (block){ block.style.textAlign = dir; }
+  else{ schedBody.style.textAlign = dir; }
 }
 
 /* ボタン配線 */
 if (schedTools){
-  // ★ツールクリックでタイトル/本文のフォーカスや選択が外れないようにする
+  // フォーカス保持（選択解除を防止）
   const keepFocus = (e)=>{
     const btn = e.target.closest('button');
     if (!btn) return;
-    e.preventDefault(); // フォーカス移動（＝選択解除）を抑止
-    // 直前のフォーカスがタイトルか本文なら維持
+    e.preventDefault();
     const ae = document.activeElement;
     if (ae === schedTitle){
       schedTitle.focus();
-    } else if (ae === schedBody || schedBody.contains(ae)){
+    }else if (ae === schedBody || schedBody.contains(ae)){
       schedBody.focus();
     }
   };
