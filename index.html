@@ -1707,7 +1707,13 @@ if (schedTitle){
 
 // 初回起動時に予定表の時刻とタイトルサイズを反映
 updateSchedClock();
-fitTitleFont();
+// レイアウト確定後に2フレーム遅らせて実行（初回だけ小さく見える対策）
+requestAnimationFrame(()=>{ 
+  fitTitleFont(); 
+  requestAnimationFrame(fitTitleFont);
+});
+// 念のためフォント/画像などの読み込み完了後にももう一度
+window.addEventListener('load', fitTitleFont, { once:true });
 /* ===== 掲示板 編集ツール ===== */
 
 /* ツールの表示/非表示：掲示板タイトル or 本文にフォーカス中だけ表示 */
