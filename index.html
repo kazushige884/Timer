@@ -1885,6 +1885,22 @@ function alignBlock(dir){
 
 /* ボタン配線 */
 if (schedTools){
+  // ★ツールクリックでタイトル/本文のフォーカスや選択が外れないようにする
+  const keepFocus = (e)=>{
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    e.preventDefault(); // フォーカス移動（＝選択解除）を抑止
+    // 直前のフォーカスがタイトルか本文なら維持
+    const ae = document.activeElement;
+    if (ae === schedTitle){
+      schedTitle.focus();
+    } else if (ae === schedBody || schedBody.contains(ae)){
+      schedBody.focus();
+    }
+  };
+  schedTools.addEventListener('mousedown', keepFocus, true);
+  schedTools.addEventListener('pointerdown', keepFocus, true);
+
   // フォントサイズ
   schedTools.querySelector('[data-cmd="fs-up"]')?.addEventListener('click', ()=> changeFontSize(+4));
   schedTools.querySelector('[data-cmd="fs-down"]')?.addEventListener('click', ()=> changeFontSize(-4));
