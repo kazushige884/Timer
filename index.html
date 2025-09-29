@@ -364,6 +364,10 @@
   background:#222; color:#ddd; border:1px solid #333; border-radius:8px;
   padding:.35em .6em; font-weight:700; cursor:pointer;
 }
+.sched-tools .align-btn{
+  width:48px;
+  text-align:center;
+}
 .sched-tools button:active{ transform: scale(.98); }
 .sched-tools .color{
   width:26px; height:26px; border-radius:6px; padding:0; border:2px solid #444;
@@ -457,16 +461,16 @@
     </div>
     <!-- 掲示板 編集ツール -->
     <div class="sched-tools" id="schedTools" hidden>
-      <div class="tool-title">編集ツール</div>
+      <div class="tool-title">editor</div>
       <div class="tool-row">
         <button class="wide" data-cmd="fs-up">A+</button>
         <button class="wide" data-cmd="fs-down">A-</button>
       </div>
       <div class="tool-row">
-        <button data-align="left">左寄せ</button>
-        <button data-align="center">中央</button>
-        <button data-align="right">右寄せ</button>
-      </div>
+  <button class="align-btn" data-align="left">|<</button>
+  <button class="align-btn" data-align="center">>|<</button>
+  <button class="align-btn" data-align="right">>|</button>
+</div>
       <div class="tool-row">
         <button class="color" data-color="#ffffff" style="background:#ffffff"></button>
         <button class="color" data-color="#ffd966" style="background:#ffd966"></button>
