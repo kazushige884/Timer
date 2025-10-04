@@ -415,7 +415,7 @@
     </div>
   </div>
   <div class="run-wrap">
-    <div class="run-title" id="runTitle">title</div>
+    <div class="run-title" id="runTitle"></div>
     <div class="timer-track">
       <svg class="track-svg" viewBox="0 0 1000 460" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <!-- 外周（左右は正円の半分、上下は直線） -->
@@ -813,7 +813,7 @@ if (btnClearQuick){
 
   // ------- 実行画面に反映 -------
   function applySettingsToRun(){
-    const title = (testNameI.value||'').trim() || 'テスト名';
+    const title = (testNameI.value||'').trim();
     runTitle.textContent = title;
 
     // すでに開始済み（進行中 or 一時停止中）の場合は残り時間・状態を維持
