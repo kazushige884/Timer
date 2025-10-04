@@ -255,6 +255,10 @@
   background:#fff; color:#000; border:3px solid #fff;
   border-radius:12px; padding:.6em 1.2em; font-weight:800;
 }
+.start-all{
+  background:var(--accent); color:#000; border:3px solid var(--accent);
+  border-radius:12px; padding:.6em 1.2em; font-weight:800;
+}
 /* iPad用の隠しtime入力 */
 .hidden-time-input{
   position:fixed; left:-9999px; top:-9999px; width:0; height:0;
@@ -450,6 +454,7 @@
     <!-- 右下の追加ボタン＋メニュー戻る -->
     <div class="multi-actions">
       <button id="addTimerBtn" class="add-fab">＋</button>
+      <button id="startAllBtn" class="start-all">一斉スタート</button>
       <button id="backToMenuBtn" class="back-btn">メニューに戻る</button>
     </div>
   </div>
@@ -489,8 +494,8 @@
     <div class="sched-clock" id="schedClock" aria-label="時刻"></div>
 
     <div class="sched-center">
-      <div id="schedTitle" class="sched-title" contenteditable="true" data-placeholder="タイトルを入力"></div>
-      <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="ここに予定を入力…"></div>
+      <div id="schedTitle" class="sched-title" contenteditable="true" data-placeholder="タイトル入力"></div>
+      <div id="schedBody" class="sched-body" contenteditable="true" data-placeholder="テキスト入力…"></div>
     </div>
   </div>
 </section>
@@ -1312,6 +1317,44 @@ timeEl.addEventListener('click', (e)=>{
   const backToMenuBtn = document.getElementById('backToMenuBtn');
   if (backToMenuBtn){
     backToMenuBtn.addEventListener('click', ()=> show(menu));
+  }
+
+  // 一斉スタート
+  const startAllBtn = document.getElementById('startAllBtn');
+  if (startAllBtn){
+    startAllBtn.addEventListener('click', ()=>{
+      const anyRunning = multiTimers.some(t => t.running);
+
+      if (anyRunning){
+        // ① どれか動いていれば全てリセット
+        multiTimers.forEach(t=>{
+          t.running  = false;
+          t.finished = false;
+          t._alarmFired = false;
+          t.remain = t.total;
+          if (t.el){
+            t.el.classList.remove('mt-finished','mt-flash','mt-warn5','mt-warn3','mt-warn1');
+          }
+          updateCardUI(t);
+        });
+        // リセット後は必要ならタイカー停止
+        // （誰も動いていない状態なので止めてもOK）
+        // stopMultiTicker();  // 必要なら有効化
+      }else{
+        // ② 動いているものが無ければ全て同時スタート
+        multiTimers.forEach(t=>{
+          t.finished = false;
+          t._alarmFired = false;
+          if (t.remain <= 0 || t.remain > t.total) t.remain = t.total;
+          t.running = true;
+          if (t.el){
+            t.el.classList.remove('mt-finished','mt-flash');
+          }
+          updateCardUI(t);
+        });
+        startMultiTicker();
+      }
+    });
   }
 
   // ▶︎/|| のトグルボタン
