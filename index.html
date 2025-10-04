@@ -564,6 +564,9 @@
 </section>
 
 <script>
+const ASSET_VERSION = 'v=20251004-01';
+</script>
+<script>
 (function(){
   // ------- 状態 -------
   const state = {
@@ -1320,18 +1323,18 @@ timeEl.addEventListener('click', (e)=>{
   // ファイル名は大小文字を厳密一致させてください（Netlifyはケースセンシティブ）
   const soundFiles = {
     male: {
-      '-1': 'sounds/start_male.mp3',
-       '0': 'sounds/end_male.mp3',
-      '60': 'sounds/1min_male.mp3',
-     '180': 'sounds/3min_male.mp3',
-     '300': 'sounds/5min_male.mp3',
+      '-1': `sounds/start_male.mp3?${ASSET_VERSION}`,
+       '0': `sounds/end_male.mp3?${ASSET_VERSION}`,
+      '60': `sounds/1min_male.mp3?${ASSET_VERSION}`,
+     '180': `sounds/3min_male.mp3?${ASSET_VERSION}`,
+     '300': `sounds/5min_male.mp3?${ASSET_VERSION}`,
     },
     female: {
-      '-1': 'sounds/start_female.mp3',
-       '0': 'sounds/end_female.mp3',
-      '60': 'sounds/1min_female.mp3',
-     '180': 'sounds/3min_female.mp3',
-     '300': 'sounds/5min_female.mp3',
+      '-1': `sounds/start_female.mp3?${ASSET_VERSION}`,
+       '0': `sounds/end_female.mp3?${ASSET_VERSION}`,
+      '60': `sounds/1min_female.mp3?${ASSET_VERSION}`,
+     '180': `sounds/3min_female.mp3?${ASSET_VERSION}`,
+     '300': `sounds/5min_female.mp3?${ASSET_VERSION}`,
     }
   };
 
@@ -1349,10 +1352,10 @@ timeEl.addEventListener('click', (e)=>{
     });
   });
   // 終了アラームもキャッシュ
-  if (!audioCache['sounds/alarm.mp3']){
-    const b = new Audio('sounds/alarm.mp3');
+  if (!audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`]){
+    const b = new Audio(`sounds/alarm.mp3?${ASSET_VERSION}`);
     b.preload = 'auto';
-    audioCache['sounds/alarm.mp3'] = b;
+    audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`] = b;
   }
 }
 
@@ -1365,7 +1368,7 @@ let pendingEndBeep = false;            // 終了音の再試行フラグ
 async function __loadAlarmBuffer(){
   try{
     const ctx = ensureAudio();
-    const res = await fetch('sounds/alarm.mp3');
+    const res = await fetch(`sounds/alarm.mp3?${ASSET_VERSION}`);
     const arr = await res.arrayBuffer();
     __alarmBuf = await ctx.decodeAudioData(arr);
   }catch(_){}
@@ -1391,8 +1394,8 @@ async function unlockAndPreloadSounds(){
 
   // 3) HTMLAudio 側もプローブ（保険）
   try{
-    const probe = audioCache['sounds/alarm.mp3'] || new Audio('sounds/alarm.mp3');
-    audioCache['sounds/alarm.mp3'] = probe;
+    const probe = audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`] || new Audio(`sounds/alarm.mp3?${ASSET_VERSION}`);
+    audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`] = probe;
     probe.playsInline = true;
     probe.muted = true;
     await probe.play();
@@ -1629,8 +1632,8 @@ function playAlarmFileOnce(){
     }catch(_){}
   }
   // 2) 保険：HTMLAudio（失敗時は保留→次のユーザ操作/復帰で再試行）
-  const a = audioCache['sounds/alarm.mp3'] || new Audio('sounds/alarm.mp3');
-  audioCache['sounds/alarm.mp3'] = a;
+  const a = audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`] || new Audio(`sounds/alarm.mp3?${ASSET_VERSION}`);
+  audioCache[`sounds/alarm.mp3?${ASSET_VERSION}`] = a;
   a.preload = 'auto';
   a.playsInline = true;
   try{
@@ -1699,7 +1702,7 @@ function fitTitleFont(){
   const ctx = document.createElement('canvas').getContext('2d');
   ctx.font = `${fs}px ${getComputedStyle(schedTitle).fontFamily}`;
 
-  const text = schedTitle.value || schedTitle.placeholder || '';
+  const text = schedTitle.textContent || schedTitle.getAttribute('data-placeholder') || '';
   let textW = ctx.measureText(text).width;
 
   // 高さ or 幅が溢れる場合は少しずつ縮める
