@@ -1213,7 +1213,7 @@ function openTimeEditor(t, anchorEl){
     const timeEl  = t.el.querySelector('.mc-time');
     const barFill = t.el.querySelector('.mc-bar-fill');
     const btn     = t.el.querySelector('.mc-toggle');
-    if (titleEl) titleEl.textContent = t.title || 'テスト名';
+    if (titleEl) titleEl.textContent = t.title || '';
     timeEl.innerHTML = fmtHMS(Math.ceil(t.remain));
     const ratio = Math.max(0, Math.min(1, t.remain / t.total));
     barFill.style.width = (ratio*100).toFixed(2) + '%';
@@ -1229,13 +1229,13 @@ function openTimeEditor(t, anchorEl){
     // デフォルト 10分
     const t = {
       id: 'mt' + Date.now() + Math.random().toString(36).slice(2,6),
-      title: 'テスト名',
+      title: '',
       total: 600, remain: 600, running: false, finished: false, el: null
     };
     const card = document.createElement('div');
     card.className = 'multi-card';
     card.innerHTML = `
-      <div class="mc-title">テスト名</div>
+      <div class="mc-title"></div>
       <div class="mc-time"><span>00</span><span class="sep colon">:</span><span>10</span><span class="sep colon">:</span><span>00</span></div>
       <div class="mc-bar"><div class="mc-bar-fill" style="width:100%"></div></div>
       <div class="mc-status">
@@ -1278,9 +1278,9 @@ function openTimeEditor(t, anchorEl){
     const titleEl = card.querySelector('.mc-title');
     titleEl.addEventListener('click', (e)=>{
       e.stopPropagation();
-      const nv = prompt('テスト名を入力', t.title || 'テスト名');
+      const nv = prompt('テスト名を入力', t.title || '');
       if (nv!=null){
-        t.title = String(nv).trim() || 'テスト名';
+        t.title = String(nv).trim();
         updateCardUI(t);
       }
     });
