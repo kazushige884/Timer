@@ -915,7 +915,6 @@ function updateRunTrackVisuals(forceFinish=false){
       if (state.annPoints.has(0)) speakPoint(0);
       // 終了アラーム（alarm.mp3を1回）。失敗時は復帰フックで再試行
       playAlarmFileOnce();
-      pendingEndBeep = true;
 
       // トラックを赤で点滅
       updateRunTrackVisuals(true);
@@ -1363,7 +1362,7 @@ const soundFiles = {
 let soundsUnlocked = false;
 let __alarmBuf = null; // alarm.mp3 を WebAudio で鳴らすためのデコード済みバッファ
 const __pendingHTMLAudios = new Set(); // play()拒否時の保留キュー
-let pendingEndBeep = false;            // 終了音の再試行フラグ
+
 
 async function __loadAlarmBuffer(){
   try{
@@ -1408,10 +1407,7 @@ async function unlockAndPreloadSounds(){
   function __resumeAndFlush(){
     try{ ensureAudio().resume(); }catch(_){}
     __flushPendingHTMLAudios();
-    if (pendingEndBeep){
-      playAlarmFileOnce();
-      pendingEndBeep = false;
-    }
+
   }
   ['pointerdown','touchend','keydown','click','visibilitychange'].forEach(ev=>{
     document.addEventListener(ev, ()=>{
