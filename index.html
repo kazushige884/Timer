@@ -955,8 +955,9 @@ function updateRunTrackVisuals(forceFinish=false){
     runMsg.textContent = '一時停止中';
   }
   function resetToStart(){
-    state.running = false;
-    cancelAnim();
+    pendingEndBeep = false;
+  state.running = false;
+  cancelAnim();
     state.remainSec = state.durationSec;
     updateTimeText(state.remainSec);
     updateBar();
