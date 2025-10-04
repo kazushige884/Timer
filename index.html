@@ -1320,23 +1320,22 @@ timeEl.addEventListener('click', (e)=>{
   if (btnReset)  btnReset.addEventListener('click', resetToStart);
 
   // ------- アナウンス（録音ファイル再生） -------
-  // ファイル名は大小文字を厳密一致させてください（Netlifyはケースセンシティブ）
-  const soundFiles = {
-    male: {
-      '-1': `sounds/start_male.mp3?${ASSET_VERSION}`,
-       '0': `sounds/end_male.mp3?${ASSET_VERSION}`,
-      '60': `sounds/1min_male.mp3?${ASSET_VERSION}`,
-     '180': `sounds/3min_male.mp3?${ASSET_VERSION}`,
-     '300': `sounds/5min_male.mp3?${ASSET_VERSION}`,
-    },
-    female: {
-      '-1': `sounds/start_female.mp3?${ASSET_VERSION}`,
-       '0': `sounds/end_female.mp3?${ASSET_VERSION}`,
-      '60': `sounds/1min_female.mp3?${ASSET_VERSION}`,
-     '180': `sounds/3min_female.mp3?${ASSET_VERSION}`,
-     '300': `sounds/5min_female.mp3?${ASSET_VERSION}`,
-    }
-  };
+const soundFiles = {
+  male: {
+    '-1': 'sounds/start_male2.mp3',
+     '0': 'sounds/end_male2.mp3',
+    '60': 'sounds/1min_male.mp3',
+   '180': 'sounds/3min_male.mp3',
+   '300': 'sounds/5min_male.mp3',
+  },
+  female: {
+    '-1': 'sounds/start_female2.mp3',
+     '0': 'sounds/end_female2.mp3',
+    '60': 'sounds/1min_female.mp3',
+   '180': 'sounds/3min_female.mp3',
+   '300': 'sounds/5min_female.mp3',
+  }
+};
 
   // オーディオ要素のキャッシュ
   const audioCache = {};
