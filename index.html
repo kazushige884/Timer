@@ -203,6 +203,7 @@
   font-weight:800; font-size: clamp(17px, 2.86vh, 26px);
   font-family:"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Hiragino Sans Rounded W6","Noto Sans JP",sans-serif;
   color:#fff; text-align:center; margin:2px 0 2px; /* 間隔を狭く */
+  min-height: 1.6em; cursor:text;
 }
 .multi-card .mc-time{
   flex:1; display:flex; align-items:center; justify-content:center;
@@ -1274,16 +1275,21 @@ function openTimeEditor(t, anchorEl){
       }
     });
 
-    // 近傍タップで編集：タイトル
-    const titleEl = card.querySelector('.mc-title');
-    titleEl.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      const nv = prompt('テスト名を入力', t.title || '');
-      if (nv!=null){
-        t.title = String(nv).trim();
-        updateCardUI(t);
-      }
-    });
+    // 近傍タップで編集：タイトル（空でも押しやすいようにカード全体でも反応）
+const titleEl = card.querySelector('.mc-title');
+function editTitle(){
+  const nv = prompt('テスト名を入力', t.title || '');
+  if (nv != null){
+    t.title = String(nv).trim();
+    updateCardUI(t);
+  }
+}
+titleEl.addEventListener('click', (e)=>{ e.stopPropagation(); editTitle(); });
+// タイトルが空のときはカード本体のクリックでも編集を開く（操作しやすさのため）
+card.addEventListener('click', (e)=>{
+  if (e.target.closest('.mc-toggle') || e.target.closest('.mc-delete')) return;
+  if (!t.title) editTitle();
+});
     // 近傍タップで編集：時間（iPad=ダイヤル / PC=入力パネル）
 const timeEl = card.querySelector('.mc-time');
 timeEl.addEventListener('click', (e)=>{
